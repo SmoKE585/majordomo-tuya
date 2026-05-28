@@ -372,14 +372,15 @@ class tuya extends module
     */
    function delete_tudevices($id)
    {
-       $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
+    	$rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
        
-       if ($rec['IR_FLAG'] ) {
-         SQLExec("DELETE FROM tuircommand WHERE DEVICE_ID='" . $rec['ID'] . "'");
-       }   
+    	if ($rec['IR_FLAG'] ) {
+        	SQLExec("DELETE FROM tuircommand WHERE DEVICE_ID='" . $rec['ID'] . "'");
+    	}   
 
-       SQLExec("DELETE FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "'");
-       SQLExec("DELETE FROM tudevices WHERE ID='" . $rec['ID'] . "'");
+		SQLExec("DELETE FROM tuvalues WHERE ID IN (SELECT ID FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "')");
+    	SQLExec("DELETE FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "'");
+		SQLExec("DELETE FROM tudevices WHERE ID='" . $rec['ID'] . "'");
    }
 
    function refresh_tudevices($id)
