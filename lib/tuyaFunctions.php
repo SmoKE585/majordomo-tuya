@@ -97,7 +97,7 @@ function TuyaDoorUser($device_id, $id) {
 	include_once(DIR_MODULES . 'tuya/tuya.class.php');
 	$tuya_module = new tuya();
 	
-	$gid  = SQLSelectOne("SELECT GID_ID FROM tudevices WHERE DEV_ID='" . .DBSafe($device_id) . "';");
+	$gid  = SQLSelectOne("SELECT GID_ID FROM tudevices WHERE DEV_ID='" . DBSafe($device_id) . "';");
 	$gid = $gid['GID_ID'];
 	$action = "tuya.m.scale.history.door.user.list";
 
