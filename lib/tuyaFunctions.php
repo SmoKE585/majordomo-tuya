@@ -97,7 +97,7 @@ function TuyaDoorUser($device_id, $id) {
 	include_once(DIR_MODULES . 'tuya/tuya.class.php');
 	$tuya_module = new tuya();
 	
-	$gid  = SQLSelectOne("SELECT GID_ID FROM tudevices WHERE DEV_ID='".$device_id."';");
+	$gid  = SQLSelectOne("SELECT GID_ID FROM tudevices WHERE DEV_ID='" . .DBSafe($device_id) . "';");
 	$gid = $gid['GID_ID'];
 	$action = "tuya.m.scale.history.door.user.list";
 
@@ -144,7 +144,7 @@ function TuyaIR($dev_id, $command) {
 	include_once(DIR_MODULES . 'tuya/tuya.class.php');
 	$tuya_module = new tuya();
 
-	$dev_info = SQLSelectOne("SELECT * FROM tudevices WHERE DEV_ID='" . $dev_id . "';");
+	$dev_info = SQLSelectOne("SELECT * FROM tudevices WHERE DEV_ID='" . DBSafe($dev_id) . "';");
 	
 	if ($dev_info) {
 		$gw_info = SQLSelectOne("SELECT * FROM tudevices WHERE DEV_ID='" .$dev_info['MESH_ID'] ."';");
