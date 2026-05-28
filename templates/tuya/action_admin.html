@@ -101,7 +101,15 @@
                  <input type="text" name="tuya_local_interval" value="<#TUYA_LOCAL_INTERVAL#>" class="form-control" placeholder="">
                </div>
             </div>
-
+            <div class="form-group">
+               <label class="control-label col-lg-6">
+                  Локальный IP адрес
+                  <span class='support-hover' tabindex="1" data-title="IP адрес сервера для локального обнаружения устройств. Если не указан, берётся первый из hostname -I"><i class="glyphicon glyphicon-info-sign"></i></span>
+               </label>
+               <div class="col-lg-4">
+                  <input type="text" name="tuya_local_ip" value="<#TUYA_LOCAL_IP#>" class="form-control" placeholder="определяется автоматически">
+               </div>
+            </div>
             <div class="form-group">
                <label class="control-label col-lg-6">
                   Использовать оригинальное облако

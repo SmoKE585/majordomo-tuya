@@ -159,6 +159,7 @@ class tuya extends module
       $out['TUYA_PASSWD'] = $this->config['TUYA_PASSWD'];
       $out['TUYA_INTERVAL'] = $this->config['TUYA_INTERVAL'];
       $out['TUYA_LOCAL_INTERVAL'] = $this->config['TUYA_LOCAL_INTERVAL'];
+      $out['TUYA_LOCAL_IP'] = $this->config['TUYA_LOCAL_IP'];
       $out['TUYA_BZTYPE'] = $this->config['TUYA_BZTYPE'];
       $out['TUYA_CCODE'] = $this->config['TUYA_CCODE'];
       $out['TUYA_SID'] = $this->config['TUYA_SID'];
@@ -191,6 +192,9 @@ class tuya extends module
          
          global $tuya_local_interval;
          $this->config['TUYA_LOCAL_INTERVAL'] = $tuya_local_interval;
+
+         global $tuya_local_ip;
+         $this->config['TUYA_LOCAL_IP'] = $tuya_local_ip;         
 
          global $tuya_sid;
          $this->config['TUYA_SID'] = $tuya_sid;
@@ -545,10 +549,14 @@ class tuya extends module
 
 
    }
-
    function getLocalIPAddress() {
-      $ip= exec('hostname -I');
-      return $ip;
+      $this->getConfig();
+      if (!empty($this->config['TUYA_LOCAL_IP'])) {
+         return $this->config['TUYA_LOCAL_IP'];
+      }
+      $ip = trim(exec('hostname -I'));
+      $ips = explode(' ', $ip);
+      return $ips[0];
    
    }
 
