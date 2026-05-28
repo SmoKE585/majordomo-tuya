@@ -372,7 +372,7 @@ class tuya extends module
     */
    function delete_tudevices($id)
    {
-       $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID='$id'");
+       $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
        
        if ($rec['IR_FLAG'] ) {
          SQLExec("DELETE FROM tuircommand WHERE DEVICE_ID='" . $rec['ID'] . "'");
@@ -384,7 +384,7 @@ class tuya extends module
 
    function refresh_tudevices($id)
    {
-       $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID='$id'");
+       $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
        
        if ($rec['IR_FLAG'] ) {
          SQLExec("DELETE FROM tuircommand WHERE DEVICE_ID='" . $rec['ID'] . "'");
