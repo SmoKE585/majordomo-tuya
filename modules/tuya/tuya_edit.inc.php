@@ -6,11 +6,7 @@
 
    $table_name = 'tudevices';
 
-   $rec = SQLSelectOne("SELECT * FROM $table_name WHERE ID='$id'");
-
-   if ($rec['ID']) {
- 
-   }
+   $rec = SQLSelectOne("SELECT * FROM $table_name WHERE ID=" . (int)$id);
 
    if ($this->mode == 'update') {
 
