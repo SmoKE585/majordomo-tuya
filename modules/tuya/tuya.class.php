@@ -2413,26 +2413,26 @@ class tuya extends module
       if ($command=='state' || $command=='switch_1' || $command=='power' || $command=='Power' || $command=='switch_on') processSubscriptions('TUSTATUS', array('FIELD' => 'STATE','VALUE' => $value,'ID' =>$device_id));
       if ($command=='online') processSubscriptions('TUSTATUS', array('FIELD' => 'ONLINE','VALUE' => $value,'ID' =>$device_id));
 
-      if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_PROPERTY']) {
-         if  ($cmd_rec['COLOR_CONVERT']==1) {
-            $value = substr($value,0,6);
+      if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_PROPERTY'] && $value !== null) {
+         if ($cmd_rec['COLOR_CONVERT'] == 1 && is_string($value)) {
+            $value = substr($value, 0, 6);
          }
 
-         if ($cmd_rec['REPLACE_LIST'] != '') {
+         if ($cmd_rec['REPLACE_LIST'] != '' && is_string($value)) {
             $list = explode(',', $cmd_rec['REPLACE_LIST']);
             foreach ($list as $pair) {
                 $pair = trim($pair);
-                list($new, $old) = explode('=', $pair);
-                if ($value == $new) {
-                    $value = $old;
+                $parts = explode('=', $pair);
+                if (count($parts) >= 2 && $value == trim($parts[0])) {
+                    $value = trim($parts[1]);
                     break;
                 }
             }
          }
-         setGlobal($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_PROPERTY'], $value, array($this->name=>1), $this->name );
+         setGlobal($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_PROPERTY'], $value, array($this->name => 1), $this->name);
       }
 
-      if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_METHOD']) {
+      if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_METHOD'] && $value !== null) {
         if (!is_array($params)) {
           $params = array();
         }
@@ -2535,9 +2535,11 @@ class tuya extends module
       }
      }
 
-     $rec = SQLSelectOne("SELECT * FROM tuvalues WHERE ID=".$properties[0]['ID'].';');
-     $rec['value']=$value;
-     SQLUpdate('tuvalues',$rec);
+     $rec = SQLSelectOne("SELECT * FROM tuvalues WHERE ID=" . (int)$properties[0]['ID'] . ';');
+     if ($rec) {
+        $rec['value'] = $value;
+        SQLUpdate('tuvalues', $rec);
+     }
 
     }
    }
