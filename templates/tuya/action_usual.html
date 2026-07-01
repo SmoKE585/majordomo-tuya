@@ -1,14 +1,14 @@
 <!-- frontend -->
-<div class="panel panel-primary">
-   <div class="panel-heading">
-      <img src="../templates/tuya/img/tuya.png" width="30" height="30" style="vertical-align:middle">
-      Устройства Tuya
+<div class="card border-primary">
+   <div class="card-header d-flex align-items-center gap-2">
+      <img src="../templates/tuya/img/tuya.png" width="24" height="24" alt="Tuya">
+      <span>Устройства Tuya</span>
    </div>
-   <div class="panel-body">
+   <div class="card-body p-0">
 
       [#if RESULT#]
-      <table class="table table-striped">
-         <thead>
+      <table class="table table-striped mb-0">
+         <thead class="table-light">
             <tr>
                <th>Устройство</th>
                <th>Состояние</th>
@@ -19,12 +19,12 @@
             [#begin RESULT#]
             <tr>
                <td>
-                  <b>[#TITLE#]</b>
+                  <strong>[#TITLE#]</strong>
                   [#if ONLINE!=""#]
                      [#if ONLINE="1"#]
-                        <span class="label label-success">в сети</span>
+                        <span class="badge bg-success ms-1">в сети</span>
                      [#else#]
-                        <span class="label label-danger">не в сети</span>
+                        <span class="badge bg-danger ms-1">не в сети</span>
                      [#endif#]
                   [#endif#]
                </td>
@@ -54,7 +54,7 @@
          </tbody>
       </table>
       [#else#]
-      <div class="alert alert-info">
+      <div class="alert alert-info m-3">
          Нет доступных устройств. <a href="?action=admin">Настройте модуль</a> для обнаружения устройств Tuya.
       </div>
       [#endif#]

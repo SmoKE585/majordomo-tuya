@@ -1,136 +1,153 @@
-
-<!-- Table 'xidevices' edit -->
-<form action="?" method="post" enctype="multipart/form-data" name="frmEdit" class="form-horizontal">
+<!-- Редактирование устройства -->
+<form action="?" method="post" enctype="multipart/form-data" name="frmEdit">
    [#if OK#]
       <div class="alert alert-success"><#LANG_DATA_SAVED#></div>
-   [#endif OK#]
+   [#endif#]
    [#if ERR#]
-      <div class="alert alert-error"><#LANG_FILLOUT_REQURED#></div>
-   [#endif ERR#]
-   <fieldset>
+      <div class="alert alert-danger"><#LANG_FILLOUT_REQURED#></div>
+   [#endif#]
+
    [#if ID=""#]
       <legend><#LANG_NEW_RECORD#></legend>
-   [#endif ID#]
+   [#endif#]
 
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_TITLE#] style="color:red;font-weight:bold"[#endif#]>
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label"[#if ERR_TITLE#] style="color:red;font-weight:bold"[#endif#]>
          <#LANG_TITLE#>: (*)
       </label>
-      <div class="col-lg-4"><input type="text" class="form-control" name="title" value="[#TITLE#]" id="title"></div>
+      <div class="col-sm-4"><input type="text" class="form-control" name="title" value="[#TITLE#]" id="title"></div>
    </div>
 
-
-
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_TYPE#] style="color:red;font-weight:bold"[#endif#]>
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">
          <#LANG_TYPE#>:
       </label>
-      <div class="col-lg-4"><input type="text" class="form-control" name="type" value="[#TYPE#]" id="type"></div>
-      <img src="[#DEV_ICON#]" height="40px" onerror="this.src='../templates/tuya/img/tuya.png'"> 
+      <div class="col-sm-4 d-flex align-items-center gap-2">
+         <input type="text" class="form-control" name="type" value="[#TYPE#]" id="type">
+         <img src="[#DEV_ICON#]" height="40" onerror="this.src='../templates/tuya/img/tuya.png'">
+      </div>
    </div>
 
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_ID#] style="color:red;font-weight:bold"[#endif#]>
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">
          Device ID:
       </label>
-      <div class="col-lg-4"><input type="text" class="form-control" name="dev_id" value="[#DEV_ID#]" id="dev_id"></div>
+      <div class="col-sm-4"><input type="text" class="form-control" name="dev_id" value="[#DEV_ID#]" id="dev_id"></div>
    </div>
 
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_MAC#] style="color:red;font-weight:bold"[#endif#]>
-         Device MAC:
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">
+         MAC-адрес:
       </label>
-      <div class="col-lg-4"><input type="text" class="form-control" name="mac" value="[#MAC#]" id="mac"></div>
+      <div class="col-sm-4"><input type="text" class="form-control" name="mac" value="[#MAC#]" id="mac"></div>
    </div>
 
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_LOCAL_KEY#] style="color:red;font-weight:bold"[#endif#]>
-         Local Key:
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">
+         Локальный ключ:
       </label>
-     <div class="col-lg-4"><input type="text" class="form-control" name="local_key" value="[#LOCAL_KEY#]" id="local_key"></div>
+      <div class="col-sm-4"><input type="text" class="form-control" name="local_key" value="[#LOCAL_KEY#]" id="local_key"></div>
    </div>
 
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_DEV_IP#] style="color:red;font-weight:bold"[#endif#]>
-         Local IP:
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">
+         Локальный IP:
       </label>
-     <div class="col-lg-4"><input type="text" class="form-control" name="dev_ip" value="[#DEV_IP#]" id="dev_ip"></div>
+      <div class="col-sm-4"><input type="text" class="form-control" name="dev_ip" value="[#DEV_IP#]" id="dev_ip"></div>
    </div>
 
-   <div class="form-group ">
-    <label class="col-lg-4 control-label">Управлять: </label>
-    <div class="col-lg-4">
-     <input type="radio" name="control" value="0"[#if CONTROL=="0"#] checked[#endif#]> Через облако
-     <input type="radio" name="control" value="1"[#if CONTROL=="1"#] checked[#endif#]> Локально
-     <input type="radio" name="control" value="2"[#if CONTROL=="2"#] checked[#endif#]> Через MQTT
-    </div>
-   </div>
-   
-   <div class="form-group ">
-    <label class="col-lg-4 control-label">Статус: </label>
-    <div class="col-lg-4">
-     <input type="radio" name="status" value="0"[#if STATUS=="0"#] checked[#endif#]> Через облако
-     <input type="radio" name="status" value="1"[#if STATUS=="1"#] checked[#endif#]> Локально
-     <input type="radio" name="status" value="2"[#if STATUS=="2"#] checked[#endif#]> Через MQTT
-
-    </div>
-   </div>
-
-   <div class="form-group ">
-    <label class="col-lg-4 control-label">Версия протокола: </label>
-    <div class="col-lg-4">
-      <select name="tuya_ver" value="[#TUYA_VER#]">
-         <option [#if TUYA_VER=="3.1" #] selected[#endif#]>3.1</option>
-         <option [#if TUYA_VER=="3.2" #] selected[#endif#]>3.2</option>
-         <option [#if TUYA_VER=="3.3" #] selected[#endif#]>3.3</option>
-         <option [#if TUYA_VER=="3.4" #] selected[#endif#]>3.4</option>
-         <option [#if TUYA_VER=="3.5" #] selected[#endif#]>3.5</option>
-      </select> 
-    </div>
-   </div>
-   
-   <div class="form-group ">
-    <label class="col-lg-4 control-label">Посылать доп.пакет для изменения статуса: </label>
-    <div class="col-lg-4">
-      <input type="checkbox" name="send12" id="send12" value="1" [#if SEND12=='1'#]checked[#endif SEND12#]> 
-      <input type="text" class="form-control" name="flags12" value="[#FLAGS12#]" id="flags12">
-    </div>
-   </div>
-
-   <div class="form-group ">
-      <label class="col-lg-4 control-label">Свойства DSP заполнены: </label>
-      <div class="col-lg-4">
-        <input type="checkbox" name="dsp_filled" id="dsp_filled" value="1" [#if DSP_FILLED=='1'#]checked[#endif DSP_FILLED#]> 
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">Управление:</label>
+      <div class="col-sm-6">
+         <div class="form-check form-check-inline">
+            <input type="radio" name="control" value="0" class="form-check-input" id="ctrl_cloud"[#if CONTROL=="0"#] checked[#endif#]>
+            <label class="form-check-label" for="ctrl_cloud">Через облако</label>
+         </div>
+         <div class="form-check form-check-inline">
+            <input type="radio" name="control" value="1" class="form-check-input" id="ctrl_local"[#if CONTROL=="1"#] checked[#endif#]>
+            <label class="form-check-label" for="ctrl_local">Локально</label>
+         </div>
+         <div class="form-check form-check-inline">
+            <input type="radio" name="control" value="2" class="form-check-input" id="ctrl_mqtt"[#if CONTROL=="2"#] checked[#endif#]>
+            <label class="form-check-label" for="ctrl_mqtt">Через MQTT</label>
+         </div>
       </div>
-     </div>
+   </div>
 
-   
-   <div class="form-group">
-      <label class="col-lg-3 control-label"[#if ERR_UPDATED#] style="color:red;font-weight:bold"[#endif#]>
-         <#LANG_UPDATED#>:
-      </label>
-      <div class="col-lg-8" style="padding: 5px 10px 0px 15px;">
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">Получение статуса:</label>
+      <div class="col-sm-6">
+         <div class="form-check form-check-inline">
+            <input type="radio" name="status" value="0" class="form-check-input" id="stat_cloud"[#if STATUS=="0"#] checked[#endif#]>
+            <label class="form-check-label" for="stat_cloud">Через облако</label>
+         </div>
+         <div class="form-check form-check-inline">
+            <input type="radio" name="status" value="1" class="form-check-input" id="stat_local"[#if STATUS=="1"#] checked[#endif#]>
+            <label class="form-check-label" for="stat_local">Локально</label>
+         </div>
+         <div class="form-check form-check-inline">
+            <input type="radio" name="status" value="2" class="form-check-input" id="stat_mqtt"[#if STATUS=="2"#] checked[#endif#]>
+            <label class="form-check-label" for="stat_mqtt">Через MQTT</label>
+         </div>
+      </div>
+   </div>
+
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">Версия протокола:</label>
+      <div class="col-sm-4">
+         <select name="tuya_ver" class="form-select">
+            <option [#if TUYA_VER=="3.1"#] selected[#endif#]>3.1</option>
+            <option [#if TUYA_VER=="3.2"#] selected[#endif#]>3.2</option>
+            <option [#if TUYA_VER=="3.3"#] selected[#endif#]>3.3</option>
+            <option [#if TUYA_VER=="3.4"#] selected[#endif#]>3.4</option>
+            <option [#if TUYA_VER=="3.5"#] selected[#endif#]>3.5</option>
+         </select>
+      </div>
+   </div>
+
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">Доп. пакет статуса:</label>
+      <div class="col-sm-6">
+         <div class="form-check form-check-inline">
+            <input type="checkbox" name="send12" id="send12" value="1" class="form-check-input" [#if SEND12=='1'#]checked[#endif#]>
+            <label class="form-check-label" for="send12">Посылать</label>
+         </div>
+         <input type="text" class="form-control form-control-sm d-inline-block" style="width:auto" name="flags12" value="[#FLAGS12#]" id="flags12">
+      </div>
+   </div>
+
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label">Свойства DSP:</label>
+      <div class="col-sm-4">
+         <div class="form-check">
+            <input type="checkbox" name="dsp_filled" id="dsp_filled" value="1" class="form-check-input" [#if DSP_FILLED=='1'#]checked[#endif#]>
+            <label class="form-check-label" for="dsp_filled">Заполнены</label>
+         </div>
+      </div>
+   </div>
+
+   <div class="row mb-3">
+      <label class="col-sm-3 col-form-label"><#LANG_UPDATED#>:</label>
+      <div class="col-sm-8 d-flex align-items-center">
          [#UPDATED#]
       </div>
    </div>
 
-
-
-   <div class="form-group">
-      <div class="col-lg-offset-3 col-lg-8">
+   <div class="row">
+      <div class="col-sm-9 offset-sm-3">
          [#if ID!=""#]
             <button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_SUBMIT#></button>
-         [#else ID#]
+         [#else#]
             <button type="submit" name="subm" value="Add" class="btn btn-primary"><#LANG_ADD#></button>
-         [#endif ID#]
-         <a href="?data_source=<#DATA_SOURCE#>" class="btn btn-default "><#LANG_CANCEL#></a>
-         <input type="hidden" name="id" value="<#ID#>">
-         <input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
-         <input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
-         <input type="hidden" name="mode" value="update">
-         <input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
-         <input type="hidden" name="tab" value="<#TAB#>">
+         [#endif#]
+         <a href="?data_source=<#DATA_SOURCE#>" class="btn btn-outline-secondary"><#LANG_CANCEL#></a>
       </div>
    </div>
-   </fieldset>
+
+   <input type="hidden" name="id" value="<#ID#>">
+   <input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
+   <input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
+   <input type="hidden" name="mode" value="update">
+   <input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
+   <input type="hidden" name="tab" value="<#TAB#>">
 </form>

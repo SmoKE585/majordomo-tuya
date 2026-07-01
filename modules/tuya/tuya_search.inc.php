@@ -181,102 +181,127 @@ if ($tab == 'scene') {
 } else {
    if (!$qry) $qry = '';
 
-   //$sortby_tudevices = 'tudevices.DEV_ID';
-   $sortby_tudevices = 'tudevices.TYPE, tudevices.TITLE';
+   // Сортировка: по умолчанию по названию A-Z, можно переопределить через $_GET['sortby'] и $_GET['sortdir']
+   global $sortby;
+   global $sortdir;
+   $allowed_sorts = ['TITLE', 'TYPE', 'DEV_ID', 'ONLINE'];
+   if (!isset($sortby) || !in_array($sortby, $allowed_sorts)) {
+      $sortby = 'TITLE';
+   }
+   if (!isset($sortdir) || !in_array(strtolower($sortdir), ['asc', 'desc'])) {
+      $sortdir = 'ASC';
+   }
+   $sortdir = strtoupper($sortdir);
+   $next_dir = ($sortdir == 'ASC') ? 'DESC' : 'ASC';
 
-   $out['SORTBY'] = $sortby_tudevices;
+   // Переменные для шаблона
+   $out['SORT_COL'] = $sortby;           // 'TITLE' или 'ONLINE'
+   $out['SORT_DIR'] = $sortdir;          // 'ASC' или 'DESC'
+   $out['SORT_NEXT'] = $next_dir;        // следующий порядок при клике
+
+   $sortby_sql = ($sortby == 'ONLINE') ? 'tudevices.TITLE ASC' : 'tudevices.' . $sortby . ' ' . $sortdir;
 
    if ($qry != '') {
-      $qry .= " AND "; 
-   } 
+      $qry .= " AND ";
+   }
    $qry .= "INSTR(DEV_ID,'_')=0 AND TYPE !='scene' AND IR_FLAG=0 ";
 
-   $res = SQLSelect("SELECT * FROM tudevices WHERE $qry ORDER BY $sortby_tudevices");
+   $res = SQLSelect("SELECT * FROM tudevices WHERE $qry ORDER BY $sortby_sql");
    $last_i = 0;
 
    if ($res[0]['ID']) {
 
       $total = count($res);
       for ($i = 0; $i < $total; $i++) {
-         //$tmp = explode(' ', $res[$i]['UPDATED']);
-         //$res[$i]['UPDATED'] = $tmp[0] . " " . $tmp[1];
-         
-         $commands = SQLSelect("SELECT tucommands.*, tuvalues.VALUE, tuvalues.UPDATED FROM tucommands LEFT JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID=" . $res[$i]['ID'] . " and TITLE!='state' AND TITLE!='report'  ORDER BY TITLE");
+
+         $commands = SQLSelect("SELECT tucommands.*, tuvalues.VALUE, tuvalues.UPDATED FROM tucommands LEFT JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID=" . $res[$i]['ID'] . " and TITLE!='state' AND TITLE!='report' ORDER BY TITLE");
 
          if ($commands[0]['ID']) {
             $totalc = count($commands);
             $sub_dev = array();
+            $linked_commands = array();
             for ($ic = 0; $ic < $totalc; $ic++) {
                if ($commands[$ic]['TITLE'] == 'online') {
-                  if (is_null($commands[$ic]['VALUE'])) $commands[$ic]['VALUE'] = 0;
+                  if (!isset($commands[$ic]['VALUE'])) $commands[$ic]['VALUE'] = 0;
                   $res[$i]['ONLINE'] = (int)$commands[$ic]['VALUE'];
                   continue;
                }
 
-               if ($commands[$ic]['ALIAS']=='') {
-                if (is_null($commands[$ic]['VALUE'])) $commands[$ic]['VALUE'] = '';  
-                $res[$i]['COMMANDS'] .= '<nobr>' . $commands[$ic]['TITLE'] . ': <i>' . substr($commands[$ic]['VALUE'],0,50) . ' ' . $commands[$ic]['VALUE_UNIT'] . '</i>';
-               } else {
-                $res[$i]['COMMANDS'] .= '<nobr>' . $commands[$ic]['ALIAS'] . ': <i>' . substr($commands[$ic]['VALUE'],0,50) .  ' ' . $commands[$ic]['VALUE_UNIT'] . '</i>';
-                if ($commands[$ic]['ALIAS']=='led_switch' OR $commands[$ic]['ALIAS']=='switch_led') {
-                  if (is_null($commands[$ic]['VALUE'])) $commands[$ic]['VALUE'] = 0; 
-                  $res[$i]['LAMP'] = (int)$commands[$ic]['VALUE'];
+               // Определяем алиас (если есть — используем его, иначе числовой TITLE)
+               $alias = ($commands[$ic]['ALIAS'] != '') ? $commands[$ic]['ALIAS'] : $commands[$ic]['TITLE'];
+               $value = $commands[$ic]['VALUE'] ?? '';
+               $unit  = $commands[$ic]['VALUE_UNIT'] ?? '';
+
+               // Индикаторы для значков включения/подсветки
+               if ($alias == 'led_switch' || $alias == 'switch_led') {
+                  $res[$i]['LAMP'] = (int)$value;
                   $res[$i]['IS_LAMP'] = 1;
-                }
-                   
-                if ($commands[$ic]['ALIAS']=='power' OR $commands[$ic]['ALIAS']=='switch_1' OR $commands[$ic]['ALIAS']=='switch_on' OR $commands[$ic]['ALIAS']=='Power' OR $commands[$ic]['ALIAS']=='switch') {
-                  if (is_null($commands[$ic]['VALUE'])) $commands[$ic]['VALUE'] = 0; 
-                  $res[$i]['STATE'] = (int)$commands[$ic]['VALUE'];
+               }
+
+               if ($alias == 'power' || $alias == 'switch_1' || $alias == 'switch_on' || $alias == 'Power' || $alias == 'switch') {
+                  $res[$i]['STATE'] = (int)$value;
                   $res[$i]['IS_STATE'] = 1;
-                }
-                
-                if (substr($commands[$ic]['ALIAS'],0,7)=='switch_') {
-                   $switch_id = substr($commands[$ic]['ALIAS'],strpos($commands[$ic]['ALIAS'],'_')+1);
-                   $sub_name = SQLSelectOne("SELECT TITLE FROM tudevices  WHERE DEV_ID = '" . $res[$i]['DEV_ID'] . "_". $switch_id . "' ORDER BY DEV_ID");
-                   if ($sub_name) {
-                     $switch_name = $sub_name['TITLE']; 
-                   } else {    
-                     $switch_name = $commands[$ic]['ALIAS'];
-                   }   
-                   if (is_null($commands[$ic]['VALUE'])) $commands[$ic]['VALUE'] = 0;
-                   array_push($sub_dev, ['ID' => $switch_id, 'SWITCH_NAME' => $switch_name, 'SWITCH_STATE' => (int)$commands[$ic]['VALUE'] ]);
-                } 
-                
-                if ($commands[$ic]['ALIAS']=='ir_code' ) {
+               }
+
+               if (substr($alias, 0, 7) == 'switch_') {
+                   $switch_id = substr($alias, strpos($alias, '_') + 1);
+                   $sub_name = SQLSelectOne("SELECT TITLE FROM tudevices WHERE DEV_ID = '" . DBSafe($res[$i]['DEV_ID'] . '_' . $switch_id) . "' ORDER BY DEV_ID");
+                   $switch_name = $sub_name ? $sub_name['TITLE'] : $alias;
+                   array_push($sub_dev, ['ID' => $switch_id, 'SWITCH_NAME' => $switch_name, 'SWITCH_STATE' => (int)$value]);
+               }
+
+               if ($alias == 'ir_code') {
                   $res[$i]['IS_STATE'] = 0;
                   $res[$i]['IS_LAMP'] = 0;
-                }   
-      
-
                }
+
+               // Собираем только привязанные свойства для отображения
                if ($commands[$ic]['LINKED_OBJECT'] != '') {
-                  $device=SQLSelectOne("SELECT TITLE FROM devices WHERE LINKED_OBJECT='".DBSafe($commands[$ic]['LINKED_OBJECT'])."'");
-                  if ($device['TITLE']) {
-                     $res[$i]['COMMANDS'] .= ' (' . $device['TITLE'].')';
-                  } else {
-                     $res[$i]['COMMANDS'] .= ' (' . $commands[$ic]['LINKED_OBJECT'];
-                     if ($commands[$ic]['LINKED_PROPERTY'] != '') {
-                        $res[$i]['COMMANDS'] .= '.' . $commands[$ic]['LINKED_PROPERTY'];
-                     } elseif ($commands[$ic]['LINKED_METHOD'] != '') {
-                        $res[$i]['COMMANDS'] .= '.' . $commands[$ic]['LINKED_METHOD'];
-                     }
-                     $res[$i]['COMMANDS'] .= ')';
-
+                  $link = $commands[$ic]['LINKED_OBJECT'];
+                  if ($commands[$ic]['LINKED_PROPERTY'] != '') {
+                     $link .= '.' . $commands[$ic]['LINKED_PROPERTY'];
+                  } elseif ($commands[$ic]['LINKED_METHOD'] != '') {
+                     $link .= '.' . $commands[$ic]['LINKED_METHOD'];
                   }
+                  $linked_commands[] = [
+                     'alias' => $alias,
+                     'value' => $value,
+                     'unit'  => $unit,
+                     'link'  => $link,
+                  ];
                }
-               $res[$i]['COMMANDS'] .= ";</nobr> ";
-               
-               if (count($sub_dev)>1) {
-                  $res[$i]['SUBDEV'] = $sub_dev;
-                  $res[$i]['IS_MULTI'] = 1;
-                  $res[$i]['IS_STATE'] = 0;
-               }   
+            }
+
+            // Формируем строку только из привязанных свойств
+            if (!empty($linked_commands)) {
+               $parts = array();
+               foreach ($linked_commands as $lc) {
+                  $v = mb_strlen($lc['value']) > 30 ? mb_substr($lc['value'], 0, 30) . '…' : $lc['value'];
+                  $parts[] = '<span class="text-nowrap me-2" title="' . htmlspecialchars($lc['link'], ENT_QUOTES, 'UTF-8') . '"><b>' . htmlspecialchars($lc['alias'], ENT_QUOTES, 'UTF-8') . '</b>: <i>' . htmlspecialchars($v, ENT_QUOTES, 'UTF-8') . ' ' . htmlspecialchars($lc['unit'], ENT_QUOTES, 'UTF-8') . '</i></span>';
+               }
+               $res[$i]['COMMANDS'] = implode('', $parts);
+            }
+
+            if (count($sub_dev) > 1) {
+               $res[$i]['SUBDEV'] = $sub_dev;
+               $res[$i]['IS_MULTI'] = 1;
+               $res[$i]['IS_STATE'] = 0;
             }
           }
-             
-           
+
+
        }
    }
-   
+
+   // Сортировка по онлайн-статусу (после вычисления ONLINE)
+   if ($sortby == 'ONLINE') {
+      usort($res, function($a, $b) use ($sortdir) {
+         $oa = (int)($a['ONLINE'] ?? 0);
+         $ob = (int)($b['ONLINE'] ?? 0);
+         if ($oa == $ob) return strcasecmp($a['TITLE'] ?? '', $b['TITLE'] ?? '');
+         return ($sortdir == 'DESC') ? $ob - $oa : $oa - $ob;
+      });
+   }
+
 }
 $out['RESULT'] = $res;
