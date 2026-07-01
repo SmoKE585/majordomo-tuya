@@ -30,8 +30,17 @@ if (empty($tuya_module->config['TUYA_IOT'])) {
 
 $result = $tuya_module->Tuya_IOT_GET('/v1.0/token?grant_type=1', true);
 
-if (!$result->success) {
-    debmes("Не удалось войти в облако IoT (MQTT-цикл): " . ($result->msg ?? 'неизвестная ошибка') . ". Проверьте Client ID и Client Secret.", 'tuya');
+if (!$result || !isset($result->success) || !$result->success) {
+    $errorMsg = ($result && isset($result->msg)) ? $result->msg : 'ошибка сети или неверные ключи доступа';
+    debmes("Не удалось войти в облако IoT (MQTT-цикл): {$errorMsg}. Проверьте Client ID и Client Secret на developer.tuya.com.", 'tuya');
+    echo date('H:i:s') . " Ошибка входа в IoT: {$errorMsg}" . PHP_EOL;
+    exit;
+}
+
+if (!isset($result->result->access_token)) {
+    debmes("Не удалось войти в облако IoT (MQTT-цикл): ответ API не содержит access_token.", 'tuya');
+    echo date('H:i:s') . " Ошибка: ответ API не содержит access_token" . PHP_EOL;
+    exit;
 }
 
 $access_token = $result->result->access_token;
@@ -117,8 +126,10 @@ function getMQTTConfig($link_id) {
     $url = '/v1.0/open-hub/access/config';
     $r_c = $tuya_module->Tuya_IOT_POST($url, $data, false);
 
-    if (!$r_c->success) {
-        debmes("Не удалось получить конфигурацию MQTT для IoT: " . ($r_c->msg ?? 'неизвестная ошибка') . ". UID: " . $uid . ". Проверьте права доступа проекта на developer.tuya.com.", 'tuya');
+    if (!$r_c || !isset($r_c->success) || !$r_c->success) {
+        $errorMsg = ($r_c && isset($r_c->msg)) ? $r_c->msg : 'неизвестная ошибка';
+        debmes("Не удалось получить конфигурацию MQTT для IoT: {$errorMsg}. UID: {$uid}. Проверьте права доступа проекта на developer.tuya.com.", 'tuya');
+        echo date('H:i:s') . " Ошибка MQTT-конфигурации: {$errorMsg}" . PHP_EOL;
         exit;
     }
     $client_name = $r_c->result->client_id;

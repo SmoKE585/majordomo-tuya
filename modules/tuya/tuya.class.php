@@ -2212,8 +2212,16 @@ class tuya extends module
 
 
       $context = stream_context_create($aHTTP);
-      $contents = file_get_contents($base.$url, false, $context);
-      $result=json_decode($contents);
+      $contents = @file_get_contents($base . $url, false, $context);
+      if ($contents === false) {
+         debmes('Ошибка сети при вызове Tuya IoT API (POST ' . $url . ')', 'tuya');
+         return (object)['success' => false, 'msg' => 'Ошибка сети: не удалось подключиться к openapi.tuyaeu.com'];
+      }
+      $result = json_decode($contents);
+      if ($result === null) {
+         debmes('Ошибка парсинга ответа Tuya IoT API (POST ' . $url . '): ' . substr($contents, 0, 200), 'tuya');
+         return (object)['success' => false, 'msg' => 'Ошибка парсинга ответа API'];
+      }
       return $result;
 
    }
@@ -2259,8 +2267,16 @@ class tuya extends module
 
 
       $context = stream_context_create($aHTTP);
-      $contents = file_get_contents($base.$url, false, $context);
-      $result=json_decode($contents);
+      $contents = @file_get_contents($base . $url, false, $context);
+      if ($contents === false) {
+         debmes('Ошибка сети при вызове Tuya IoT API (GET ' . $url . ')', 'tuya');
+         return (object)['success' => false, 'msg' => 'Ошибка сети: не удалось подключиться к openapi.tuyaeu.com'];
+      }
+      $result = json_decode($contents);
+      if ($result === null) {
+         debmes('Ошибка парсинга ответа Tuya IoT API (GET ' . $url . '): ' . substr($contents, 0, 200), 'tuya');
+         return (object)['success' => false, 'msg' => 'Ошибка парсинга ответа API'];
+      }
       return $result;
 
 
