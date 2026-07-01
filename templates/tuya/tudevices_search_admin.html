@@ -92,8 +92,7 @@
                <th></th>
                <th><a href="?data_source=<#DATA_SOURCE#>&sortby=TITLE&sortdir=<#SORT_NEXT#>" class="text-decoration-none text-reset"><#LANG_TITLE#> [#if SORT_COL=="TITLE"#][#if SORT_DIR=="ASC"#]▲[#else#]▼[#endif#][#endif#]</a></th>
                <th>ID</th>
-               <th class="text-center"><a href="?data_source=<#DATA_SOURCE#>&sortby=ONLINE&sortdir=<#SORT_NEXT#>" class="text-decoration-none text-reset">Статус [#if SORT_COL=="ONLINE"#][#if SORT_DIR=="ASC"#]▲[#else#]▼[#endif#][#endif#]</a></th>
-               <th class="text-center">Состояние</th>
+               <th class="text-center"><a href="?data_source=<#DATA_SOURCE#>&sortby=ONLINE&sortdir=<#SORT_NEXT#>" class="text-decoration-none text-reset">Связь [#if SORT_COL=="ONLINE"#][#if SORT_DIR=="ASC"#]▲[#else#]▼[#endif#][#endif#]</a></th>
                <th class="text-nowrap"></th>
             </tr>
          </thead>
@@ -104,51 +103,53 @@
                <img src="[#DEV_ICON#]" height="40" onerror="this.src='../templates/tuya/img/tuya.png'">
             </td>
             <td[#if LOST#] class="text-muted fw-bold"[#endif#]>
-               <b>[#TITLE#]</b>
-               [#if COMMANDS!=""#]<div class="small text-muted">[#COMMANDS#]</div>[#endif#]
-               [#if IS_MULTI==1#]
-               <div class="d-inline-block border rounded p-1 mt-1">
-                  [#begin SUBDEV#]
-                  <span class="d-inline-block me-2">
-                     [#if SWITCH_STATE==1#]
-                        <img id="tustate[#ID#]" src="../templates/tuya/img/on-button.png" width="24">
+               <div class="d-flex align-items-center gap-2">
+                  [#if IS_STATE==1#]
+                     [#if STATE==1#]
+                        <img id="tustate[#ID#]" src="../templates/tuya/img/on-button.png" width="28" title="Включено" style="flex-shrink:0">
                      [#else#]
-                        <img id="tustate[#ID#]" src="../templates/tuya/img/off-button.png" width="24">
+                        <img id="tustate[#ID#]" src="../templates/tuya/img/off-button.png" width="28" title="Выключено" style="flex-shrink:0">
                      [#endif#]
-                     [#SWITCH_NAME#]
-                  </span>
-                  [#end SUBDEV#]
+                  [#endif#]
+                  [#if IS_LAMP==1#]
+                     [#if LAMP==1#]
+                        <img id="tulamp[#ID#]" src="../templates/tuya/img/lamp_on.png" width="20" height="20" title="Подсветка вкл" style="flex-shrink:0">
+                     [#else#]
+                        <img id="tulamp[#ID#]" src="../templates/tuya/img/lamp_off.png" width="20" height="20" title="Подсветка выкл" style="flex-shrink:0">
+                     [#endif#]
+                  [#endif#]
+                  <div>
+                     <b>[#TITLE#]</b>
+                     [#if COMMANDS!=""#]<div class="small text-muted">[#COMMANDS#]</div>[#endif#]
+                     [#if IS_MULTI==1#]
+                     <div class="d-inline-flex flex-wrap align-items-center gap-2 mt-1">
+                        [#begin SUBDEV#]
+                        <span class="badge bg-light text-dark border">
+                           [#if SWITCH_STATE==1#]
+                              <img src="../templates/tuya/img/on-button.png" width="16">
+                           [#else#]
+                              <img src="../templates/tuya/img/off-button.png" width="16">
+                           [#endif#]
+                           [#SWITCH_NAME#]
+                        </span>
+                        [#end SUBDEV#]
+                     </div>
+                     [#endif IS_MULTI#]
+                  </div>
                </div>
-               [#endif IS_MULTI#]
             </td>
             <td[#if LOST#] class="text-muted fw-bold"[#endif#]>[#if DEV_ID!=""#][#DEV_ID#][#else#]&nbsp;[#endif#]</td>
             <td class="text-center">
                [#if ONLINE==1#]
-                  <span id="tuonline[#ID#]" class="badge bg-success" title="В сети">В сети</span>
+                  <span id="tuonline[#ID#]" class="badge bg-success" title="Устройство в сети">в сети</span>
                [#else#]
-                  <span id="tuonline[#ID#]" class="badge bg-warning" title="Не в сети">Не в сети</span>
+                  <span id="tuonline[#ID#]" class="badge bg-warning text-dark" title="Устройство не в сети">не в сети</span>
                [#endif#]
-               <div class="small fw-bold">
-                  [#if STATUS==0#]Cloud[#endif#]
-                  [#if STATUS==1#]LAN[#endif#]
+               <div class="small text-muted mt-1">
+                  [#if STATUS==0#]через облако[#endif#]
+                  [#if STATUS==1#]локально[#endif#]
                   [#if STATUS==2#]MQTT[#endif#]
                </div>
-            </td>
-            <td class="text-center">
-               [#if IS_STATE==1#]
-                  [#if STATE==1#]
-                     <img id="tustate[#ID#]" src="../templates/tuya/img/on-button.png" width="32">
-                  [#else#]
-                     <img id="tustate[#ID#]" src="../templates/tuya/img/off-button.png" width="32">
-                  [#endif#]
-               [#endif#]
-               [#if IS_LAMP==1#]
-                  [#if LAMP==1#]
-                     <img id="tulamp[#ID#]" src="../templates/tuya/img/lamp_on.png" width="20" height="20">
-                  [#else#]
-                     <img id="tulamp[#ID#]" src="../templates/tuya/img/lamp_off.png" width="20" height="20">
-                  [#endif#]
-               [#endif#]
             </td>
             <td>
                <div class="d-flex gap-1" style="min-width:120px">
