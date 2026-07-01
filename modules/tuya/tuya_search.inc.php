@@ -276,8 +276,9 @@ if ($tab == 'scene') {
             if (!empty($linked_commands)) {
                $parts = array();
                foreach ($linked_commands as $lc) {
-                  $v = mb_strlen($lc['value']) > 30 ? mb_substr($lc['value'], 0, 30) . '…' : $lc['value'];
-                  $parts[] = '<span class="text-nowrap me-2" title="' . htmlspecialchars($lc['link'], ENT_QUOTES, 'UTF-8') . '"><b>' . htmlspecialchars($lc['alias'], ENT_QUOTES, 'UTF-8') . '</b>: <i>' . htmlspecialchars($v, ENT_QUOTES, 'UTF-8') . ' ' . htmlspecialchars($lc['unit'], ENT_QUOTES, 'UTF-8') . '</i></span>';
+                  $v = mb_strlen($lc['value']) > 25 ? mb_substr($lc['value'], 0, 25) . '…' : $lc['value'];
+                  $unitHtml = $lc['unit'] ? ' <span class=\"unit\">' . htmlspecialchars($lc['unit'], ENT_QUOTES, 'UTF-8') . '</span>' : '';
+                  $parts[] = '<span class=\"tu-prop-chip\" title=\"' . htmlspecialchars($lc['link'], ENT_QUOTES, 'UTF-8') . '\"><i>' . htmlspecialchars($lc['alias'], ENT_QUOTES, 'UTF-8') . '</i> ' . htmlspecialchars($v, ENT_QUOTES, 'UTF-8') . $unitHtml . '</span>';
                }
                $res[$i]['COMMANDS'] = implode('', $parts);
             }
