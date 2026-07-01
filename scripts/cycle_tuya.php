@@ -1,6 +1,6 @@
 <?php
 /**
- * Tuya Cycle
+ * Цикл опроса Tuya (HA облако + оригинальное облако)
  */
 
 chdir(dirname(__FILE__) . '/../');
@@ -23,7 +23,7 @@ include_once(DIR_MODULES . 'tuya/tuya.class.php');
 $tuya_module = new tuya();
 $tuya_module->getConfig();
 
-echo date('H:i:s') . ' Running ' . basename(__FILE__) . PHP_EOL;
+echo date('H:i:s') . ' Запуск ' . basename(__FILE__) . PHP_EOL;
 
 $latest_check = 0;
 $latest_check_web = 0;
@@ -39,37 +39,26 @@ $tuya_web = false;
 $latest_cycle_check = 0;
 
 
-if ($tuya_module->config['TUYA_INTERVAL']) {
-    $tuya_interval = $tuya_module->config['TUYA_INTERVAL'];
+if (!empty($tuya_module->config['TUYA_INTERVAL'])) {
+    $tuya_interval = (int)$tuya_module->config['TUYA_INTERVAL'];
 }
 
-if ($tuya_module->config['TUYA_WEB_INTERVAL']) {
-    $tuya_web_interval = $tuya_module->config['TUYA_WEB_INTERVAL'];
+if (!empty($tuya_module->config['TUYA_WEB_INTERVAL'])) {
+    $tuya_web_interval = (int)$tuya_module->config['TUYA_WEB_INTERVAL'];
 }
 
-if (isset($tuya_module->config['TUYA_WEB']) && $tuya_module->config['TUYA_WEB']) {
-    $tuya_web = $tuya_module->config['TUYA_WEB'];
-} else {
-    $tuya_web = false;
-}
-
-if (isset($tuya_module->config['TUYA_HA']) && $tuya_module->config['TUYA_HA']) {
-    $tuya_ha = $tuya_module->config['TUYA_HA'];
-} else {
-    $tuya_ha = false;
-}
+$tuya_web = !empty($tuya_module->config['TUYA_WEB']);
+$tuya_ha  = !empty($tuya_module->config['TUYA_HA']);
 
 
-echo date('H:i:s') . ' Init Tuya ' . PHP_EOL;
-echo date('H:i:s') . " Discover period - $tuya_interval seconds" . PHP_EOL;
+echo date('H:i:s') . ' Инициализация Tuya' . PHP_EOL;
+echo date('H:i:s') . " Период опроса — $tuya_interval сек." . PHP_EOL;
 
 if ($tuya_web) {
     $latest_check_web = time();
-
     $tuya_module->Tuya_Web_Discovery_Devices();
-      
 }
-     
+
 
 
 while (1) {
@@ -77,39 +66,38 @@ while (1) {
         $latest_cycle_check = time();
         setGlobal((str_replace('.php', '', basename(__FILE__))) . 'Run', time(), 1);
     }
-    
+
     if ($tuya_ha && (time() - $latest_check) >= $tuya_interval) {
         $latest_check = time();
-        #$tuya_module->requestLocalStatus();
 
-        if ($tuya_module->config['TUYA_REFRESH_TOKEN'] != null ) {
+        if (!empty($tuya_module->config['TUYA_REFRESH_TOKEN'])) {
             $token = $tuya_module->RefreshToken();
             $tuya_module->Tuya_Discovery_Devices($token);
-        } 
-        
+        }
+
     }
 
-    if ((time() - $latest_check_web) >= $tuya_web_interval and $tuya_web ) {
+    if ((time() - $latest_check_web) >= $tuya_web_interval && $tuya_web) {
         $latest_check_web = time();
 
-        if ((time() - $latest_discovery) >= 5*60) {
+        if ((time() - $latest_discovery) >= 5 * 60) {
             $latest_discovery = time();
             $tuya_module->Tuya_Web_Discovery_Devices();
-        } else {    
+        } else {
             $tuya_module->Tuya_Web_Status();
-        }    
-      
+        }
+
     }
-    
-    if (file_exists('./reboot') || IsSet($_GET['onetime'])) {
+
+    if (file_exists('./reboot') || isset($_GET['onetime'])) {
         $db->Disconnect();
-        echo date('H:i:s') . ' Stopping by command REBOOT or ONETIME' . basename(__FILE__) . PHP_EOL;
+        echo date('H:i:s') . ' Остановка по команде REBOOT или ONETIME: ' . basename(__FILE__) . PHP_EOL;
         exit;
     }
 
     sleep(1);
 }
 
-echo date('H:i:s') . ' Unexpected close of cycle' . PHP_EOL;
+echo date('H:i:s') . ' Неожиданное завершение цикла' . PHP_EOL;
 
-DebMes('Unexpected close of cycle: ' . basename(__FILE__));
+DebMes('Неожиданное завершение цикла: ' . basename(__FILE__));

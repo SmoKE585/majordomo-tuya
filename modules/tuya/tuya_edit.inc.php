@@ -144,8 +144,8 @@
             if (strlen($properties[$i]['SPLIT']) == 0) $properties[$i]['SPLIT'] = 0;
        
             
-	    unset($properties[$i]['VALUE']);
-	    unset($properties[$i]['UPDATED']);
+       unset($properties[$i]['VALUE']);
+       unset($properties[$i]['UPDATED']);
 
             SQLUpdate('tucommands', $properties[$i]);
             if ($old_linked_object && $old_linked_object!=$properties[$i]['LINKED_OBJECT'] && $old_linked_property && $old_linked_property!=$properties[$i]['LINKED_PROPERTY']) {

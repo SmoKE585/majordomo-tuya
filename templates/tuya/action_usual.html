@@ -1,1 +1,63 @@
-<!--# Action Usual #-->
+<!-- frontend -->
+<div class="panel panel-primary">
+   <div class="panel-heading">
+      <img src="../templates/tuya/img/tuya.png" width="30" height="30" style="vertical-align:middle">
+      Устройства Tuya
+   </div>
+   <div class="panel-body">
+
+      [#if RESULT#]
+      <table class="table table-striped">
+         <thead>
+            <tr>
+               <th>Устройство</th>
+               <th>Состояние</th>
+               <th>Данные</th>
+            </tr>
+         </thead>
+         <tbody>
+            [#begin RESULT#]
+            <tr>
+               <td>
+                  <b>[#TITLE#]</b>
+                  [#if ONLINE!=""#]
+                     [#if ONLINE="1"#]
+                        <span class="label label-success">в сети</span>
+                     [#else#]
+                        <span class="label label-danger">не в сети</span>
+                     [#endif#]
+                  [#endif#]
+               </td>
+               <td>
+                  [#if IS_STATE="1"#]
+                     [#if STATE="1"#]
+                        <img src="../templates/tuya/img/lamp_on.png" width="24" height="24" title="Включено">
+                     [#else#]
+                        <img src="../templates/tuya/img/lamp_off.png" width="24" height="24" title="Выключено">
+                     [#endif#]
+                  [#endif#]
+                  [#if IS_LAMP="1"#]
+                     [#if LAMP="1"#]
+                        <img src="../templates/tuya/img/lamp_on.png" width="24" height="24" title="Подсветка вкл">
+                     [#else#]
+                        <img src="../templates/tuya/img/lamp_off.png" width="24" height="24" title="Подсветка выкл">
+                     [#endif#]
+                  [#endif#]
+               </td>
+               <td>
+                  [#if COMMANDS!=""#]
+                     [#COMMANDS#]
+                  [#endif#]
+               </td>
+            </tr>
+            [#end RESULT#]
+         </tbody>
+      </table>
+      [#else#]
+      <div class="alert alert-info">
+         Нет доступных устройств. <a href="?action=admin">Настройте модуль</a> для обнаружения устройств Tuya.
+      </div>
+      [#endif#]
+
+   </div>
+</div>
