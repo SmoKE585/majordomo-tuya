@@ -2284,6 +2284,45 @@ class tuya extends module
    }
 
 
+   function getPendingValueCacheKey($command_id) {
+      return 'tuya_pending_value_' . (int)$command_id;
+   }
+
+   function setPendingValue($command_id, $value, $ttl = 15) {
+      if (!$command_id) {
+         return;
+      }
+      saveToCache($this->getPendingValueCacheKey($command_id), (time() + (int)$ttl) . '|' . (string)$value);
+   }
+
+   function shouldSkipPendingValue($command_id, $value) {
+      if (!$command_id) {
+         return false;
+      }
+
+      $key = $this->getPendingValueCacheKey($command_id);
+      $pending = checkFromCache($key);
+      if ($pending === false || $pending === '') {
+         return false;
+      }
+
+      $parts = explode('|', $pending, 2);
+      $expires = (int)$parts[0];
+      $expected = isset($parts[1]) ? $parts[1] : '';
+
+      if ($expires < time()) {
+         deleteFromCache($key);
+         return false;
+      }
+
+      if ((string)$value === (string)$expected) {
+         deleteFromCache($key);
+         return false;
+      }
+
+      return true;
+   }
+
    function processCommand($device_id, $command, $value, $params = 0, $checkOld = true) {
 
       $cmd_rec = SQLSelectOne("SELECT * FROM tucommands WHERE DEVICE_ID=".(int)$device_id." AND TITLE LIKE '".DBSafe($command)."'");
@@ -2382,6 +2421,27 @@ class tuya extends module
 
       if (is_null($value)) $value='';
 
+      $linked_value = $value;
+      if ($cmd_rec['COLOR_CONVERT'] == 1 && is_string($linked_value)) {
+         $linked_value = substr($linked_value, 0, 6);
+      }
+
+      if ($cmd_rec['REPLACE_LIST'] != '' && is_string($linked_value)) {
+         $list = explode(',', $cmd_rec['REPLACE_LIST']);
+         foreach ($list as $pair) {
+             $pair = trim($pair);
+             $parts = explode('=', $pair);
+             if (count($parts) >= 2 && $linked_value == trim($parts[0])) {
+                 $linked_value = trim($parts[1]);
+                 break;
+             }
+         }
+      }
+
+      if ($this->shouldSkipPendingValue($cmd_rec['ID'], $linked_value)) {
+         return;
+      }
+
 
       $old_rec = SQLSelectOne('SELECT * FROM tuvalues WHERE ID='.$cmd_rec['ID'].';');
 
@@ -2390,16 +2450,16 @@ class tuya extends module
          $old_value = $old_rec['VALUE'];
         if (is_null($old_value)) $old_value='';
 
-        $old_rec['VALUE'] = $value;
+        $old_rec['VALUE'] = $linked_value;
         $old_rec['UPDATED'] = date('Y-m-d H:i:s');
 
         SQLUpdate('tuvalues', $old_rec);
-         if ($checkOld && $old_value == $value) return;
+         if ($checkOld && $old_value == $linked_value) return;
 
       } else {
          $old_rec = array();
          $old_rec['ID'] = $cmd_rec['ID'];
-         $old_rec['VALUE'] = $value;
+         $old_rec['VALUE'] = $linked_value;
          $old_rec['UPDATED'] = date('Y-m-d H:i:s');
 
          SQLInsert('tuvalues', $old_rec);
@@ -2414,29 +2474,14 @@ class tuya extends module
       if ($command=='online') processSubscriptions('TUSTATUS', array('FIELD' => 'ONLINE','VALUE' => $value,'ID' =>$device_id));
 
       if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_PROPERTY'] && $value !== null) {
-         if ($cmd_rec['COLOR_CONVERT'] == 1 && is_string($value)) {
-            $value = substr($value, 0, 6);
-         }
-
-         if ($cmd_rec['REPLACE_LIST'] != '' && is_string($value)) {
-            $list = explode(',', $cmd_rec['REPLACE_LIST']);
-            foreach ($list as $pair) {
-                $pair = trim($pair);
-                $parts = explode('=', $pair);
-                if (count($parts) >= 2 && $value == trim($parts[0])) {
-                    $value = trim($parts[1]);
-                    break;
-                }
-            }
-         }
-         setGlobal($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_PROPERTY'], $value, array($this->name => 1), $this->name);
+         setGlobal($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_PROPERTY'], $linked_value, array($this->name => 1), $this->name);
       }
 
       if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_METHOD'] && $value !== null) {
         if (!is_array($params)) {
           $params = array();
         }
-        $params['VALUE'] = $value;
+        $params['VALUE'] = $linked_value;
         callMethodSafe($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_METHOD'], $params);
       }
 
@@ -2448,6 +2493,7 @@ class tuya extends module
     $properties = SQLSelect("SELECT tucommands.*, tudevices.TUYA_VER, tudevices.DEV_ID,tudevices.CONTROL,tudevices.STATUS, tudevices.LOCAL_KEY,tudevices.DEV_IP,tudevices.TYPE,tudevices.MESH_ID,tudevices.GID_ID,tudevices.MAC,tudevices.UUID FROM tucommands LEFT JOIN tudevices ON tudevices.ID=tucommands.DEVICE_ID WHERE tucommands.LINKED_OBJECT LIKE '".DBSafe($object)."' AND tucommands.LINKED_PROPERTY LIKE '".DBSafe($property)."'");
 
     if ($properties) {
+      $linked_value = $value;
 
       if ($properties[0]['REPLACE_LIST'] != '') {
          $list = explode(',', $properties[0]['REPLACE_LIST']);
@@ -2482,6 +2528,8 @@ class tuya extends module
      if ($properties[0]['VALUE_SCALE'] >0) {
       $value = $value * (10** $properties[0]['VALUE_SCALE']);
      }
+
+     $this->setPendingValue($properties[0]['ID'], $linked_value);
 
      if (((strlen($properties[0]['LOCAL_KEY'])==0 || strlen($properties[0]['DEV_IP'])==0) && (strlen($properties[0]['MAC'])==0 || strlen($properties[0]['MESH_ID'])==0)) || $properties[0]['CONTROL']==0) {
 
@@ -2537,8 +2585,15 @@ class tuya extends module
 
      $rec = SQLSelectOne("SELECT * FROM tuvalues WHERE ID=" . (int)$properties[0]['ID'] . ';');
      if ($rec) {
-        $rec['value'] = $value;
+        $rec['VALUE'] = $linked_value;
+        $rec['UPDATED'] = date('Y-m-d H:i:s');
         SQLUpdate('tuvalues', $rec);
+     } else {
+        $rec = array();
+        $rec['ID'] = $properties[0]['ID'];
+        $rec['VALUE'] = $linked_value;
+        $rec['UPDATED'] = date('Y-m-d H:i:s');
+        SQLInsert('tuvalues', $rec);
      }
 
     }
