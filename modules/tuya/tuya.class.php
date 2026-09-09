@@ -2514,7 +2514,7 @@ class tuya extends module
                 $params = array();
             }
             $params['VALUE'] = $linked_value;
-            $params['PROP'] = $command;
+            $params['PROP'] = $cmd_rec['ALIAS'];
             callMethodSafe($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_METHOD'], $params);
         }
 
