@@ -8,7 +8,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 });
 $core = str_replace('\\', '/', realpath($argv[1] ?? (__DIR__ . '/../../___majordomo')) ?: '');
 if (!is_file($core . '/lib/jTemplate.class.php')) { throw new RuntimeException('Pass the MajorDoMo core directory as the first argument.'); }
-define('DIR_MODULES', __DIR__ . '/no-real-modules/');
+define('DIR_MODULES', __DIR__ . '/../modules/');
 define('ROOTHTML', '/');
 define('ROOT', __DIR__ . '/no-real-runtime/');
 define('SETTINGS_SITE_LANGUAGE', 'test');
@@ -65,6 +65,12 @@ class linkedobject {
     }
 }
 require $core . '/lib/jTemplate.class.php';
+// Load declarations only: constructors and application bootstrap never run.
+class module {}
+require_once __DIR__ . '/../lib/tuyaFunctions.php';
+if (function_exists('TuyaScene') || function_exists('TuyaIR') || method_exists('tuya', 'getScenes') || method_exists('tuya', 'infoScene') || method_exists('tuya', 'refresh_tudevices')) {
+    throw new RuntimeException('Obsolete scene/remote API must be removed.');
+}
 $variant = $argv[2] ?? 'devices';
 $fixtureDevices = [];
 for ($i = 1; $i <= 31; $i++) {
@@ -122,15 +128,6 @@ if (in_array($variant, ['devices', 'empty'], true)) {
     }
     if ($variant === 'new') { $data['ID'] = ''; $data['TITLE'] = ''; }
     if ($variant === 'error') { $data['ERR'] = 1; $data['ERR_TITLE'] = 1; $data['TITLE'] = ''; }
-} elseif ($variant === 'scene') {
-    $data['TAB'] = 'scene';
-    $data['RESULT'] = [['ID' => 11, 'TITLE' => 'Вечерний свет', 'DEV_ID' => 'scene-fixture']];
-} elseif ($variant === 'ir') {
-    $data['TAB'] = 'ir';
-    $data['RESULT'] = [['ID' => 12, 'TITLE' => 'Кондиционер', 'DEV_ID' => 'remote-fixture', 'CODES' => [
-        ['ID' => 51, 'DEV_ID' => 'remote-fixture', 'TITLE' => 'Питание'],
-        ['ID' => 52, 'DEV_ID' => 'remote-fixture', 'TITLE' => 'Температура +'],
-    ]]];
 } else { throw new RuntimeException('Unknown fixture: ' . $variant); }
 $translations = ['LANG_DATA_SAVED' => 'Данные сохранены', 'LANG_FILLOUT_REQURED' => 'Заполните обязательные поля'];
 foreach ($translations as $key => $value) define($key, $value);

@@ -274,7 +274,6 @@ class tuya extends module
 
         if ($this->data_source == 'tudevices' || $this->data_source == '') {
             if ($this->view_mode == '' || $this->view_mode == 'search_tudevices') {
-                if (isset($this->tab) && $this->tab == 'scene') $this->getScenes();
 
                 $this->search_tudevices($out);
             }
@@ -283,10 +282,6 @@ class tuya extends module
             }
             if ($this->view_mode == 'delete_tudevices') {
                 $this->delete_tudevices($this->id);
-                $this->redirect("?data_source=tudevices&tab=" . $this->tab);
-            }
-            if ($this->view_mode == 'refresh_tudevices') {
-                $this->refresh_tudevices($this->id);
                 $this->redirect("?data_source=tudevices&tab=" . $this->tab);
             }
         }
@@ -317,26 +312,6 @@ class tuya extends module
                 $this->scanDevices();
                 exit;
             }
-            if ($op == 'run_scene') {
-                global $dev_id;
-                tuyaScene($dev_id);
-                exit;
-            }
-            if ($op == 'info_scene') {
-                global $dev_id;
-                $this->infoScene($dev_id);
-                exit;
-            }
-
-            if ($op == 'run_ir') {
-                global $dev_id;
-                global $id;
-
-                $rec = SQLSelectOne("SELECT TITLE FROM tuircommand WHERE ID=" . $id);
-                TuyaIR($dev_id, $rec['TITLE']);
-                exit;
-            }
-
             //        if ($op == 'process') {
             //           global $message;
             //           global $ip;
@@ -378,23 +353,10 @@ class tuya extends module
     {
         $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
 
-        if ($rec['IR_FLAG']) {
-            SQLExec("DELETE FROM tuircommand WHERE DEVICE_ID='" . $rec['ID'] . "'");
-        }
 
         SQLExec("DELETE FROM tuvalues WHERE ID IN (SELECT ID FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "')");
         SQLExec("DELETE FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "'");
         SQLExec("DELETE FROM tudevices WHERE ID='" . $rec['ID'] . "'");
-    }
-
-    function refresh_tudevices($id)
-    {
-        $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
-
-        if ($rec['IR_FLAG']) {
-            SQLExec("DELETE FROM tuircommand WHERE DEVICE_ID='" . $rec['ID'] . "'");
-        }
-
     }
 
     /**
@@ -592,78 +554,6 @@ class tuya extends module
             echo '<td> (' . $protocol . ') </td>';
             echo '<td>' . $ip . '</td>';
             echo '</tr>';
-        }
-    }
-
-    function getScenes()
-    {
-        $this->getConfig();
-        if ($this->config['TUYA_WEB']) {
-            $apiResult = $this->TuyaWebRequest(['action' => 'tuya.m.location.list',
-                'requiresSID' => 1]);
-
-            $result = json_decode($apiResult, true);
-            $gid = $result['result'][0] ['groupId'];
-
-
-            $action = "tuya.m.linkage.rule.query";
-
-            $apiResult = $this->TuyaWebRequest(['action' => $action,
-                'gid' => $gid,
-                'requiresSID' => 1]);
-            $result = json_decode($apiResult, true);
-
-            if ($result['result']) {
-                foreach ($result['result'] as $scene) {
-                    $rec = SQLSelectOne("SELECT * FROM tudevices WHERE DEV_ID='" . DBSafe($scene['id']) . "' AND TYPE='scene';");
-                    if ($rec) {
-                        if ($rec['TITLE'] != $scene['name']) {
-                            $rec['TITLE'] = $scene['name'];
-                            SQLUpdate('tudevices', $rec);
-                        }
-                    } else {
-                        $rec = array();
-                        $rec['DEV_ID'] = $scene['id'];
-                        $rec['TITLE'] = $scene['name'];
-                        $rec['TYPE'] = 'scene';
-                        SQLInsert('tudevices', $rec);
-                    }
-                }
-            }
-        }
-    }
-
-    function infoScene($dev_id)
-    {
-        debmes('Info Scene running');
-        $this->getConfig();
-        if ($this->config['TUYA_WEB']) {
-            $apiResult = $this->TuyaWebRequest(['action' => 'tuya.m.location.list',
-                'requiresSID' => 1]);
-
-            $result = json_decode($apiResult, true);
-            $gid = $result['result'][0] ['groupId'];
-
-
-            $action = "tuya.m.linkage.rule.query";
-
-            $apiResult = $this->TuyaWebRequest(['action' => $action,
-                'gid' => $gid,
-                'requiresSID' => 1]);
-            $result = json_decode($apiResult, true);
-
-            if ($result['result']) {
-                foreach ($result['result'] as $scene) {
-                    debmes('Scene: ' . $scene['id']);
-                    if ($scene['id'] == $dev_id) {
-                        foreach ($scene['actions'] as $action) {
-                            echo var_dump($action);
-                            echo '<BR>------------------<BR>';
-                        }
-                    }
-                }
-                exit;
-            }
         }
     }
 
@@ -1643,14 +1533,12 @@ class tuya extends module
             $result = json_decode($apiResult, true);
 
             foreach ($result['result'] as $device) {
+                if (isset($device['moduleMap']['infrared'])) {
+                    continue;
+                }
 
                 $rec = SQLSelectOne('select * from tudevices where DEV_ID="' . DBSafe($device['devId']) . '"');
 
-                if (isset($device['moduleMap']['infrared'])) {
-                    $ir_flag = 1;
-                } else {
-                    $ir_flag = 0;
-                }
 
                 if (!isset($device['meshId'])) {
                     $device['meshId'] = '';
@@ -1659,7 +1547,7 @@ class tuya extends module
 
                 if (empty($rec)) {
 
-                    $rec['IR_FLAG'] = $ir_flag;
+                    $rec['IR_FLAG'] = 0;
                     $rec['TITLE'] = $device['name'];
                     $rec['DEV_ICON'] = $device['iconUrl'];
                     $rec['DEV_ID'] = $device['devId'];
@@ -1687,13 +1575,13 @@ class tuya extends module
 
                     $uuid = isset($device['nodeId']) ? $device['nodeId'] : $device['uuid'];
 
-                    if ($rec['IR_FLAG'] != $ir_flag || $rec['MAC'] != $device['mac'] || $rec['LOCAL_KEY'] != $device['localKey'] || $rec['PRODUCT_ID'] != $device['productId'] || $rec['GID_ID'] != $gid || $rec['MESH_ID'] != $device['meshId'] || $rec['UUID'] != $uuid) {
+                    if ($rec['IR_FLAG'] != 0 || $rec['MAC'] != $device['mac'] || $rec['LOCAL_KEY'] != $device['localKey'] || $rec['PRODUCT_ID'] != $device['productId'] || $rec['GID_ID'] != $gid || $rec['MESH_ID'] != $device['meshId'] || $rec['UUID'] != $uuid) {
                         $rec['LOCAL_KEY'] = $device['localKey'];
                         $rec['PRODUCT_ID'] = $device['productId'];
                         $rec['GID_ID'] = $gid;
                         $rec['MESH_ID'] = $device['meshId'];
                         $rec['MAC'] = $device['mac'];
-                        $rec['IR_FLAG'] = $ir_flag;
+                        $rec['IR_FLAG'] = 0;
                         $rec['UUID'] = $uuid;
                         $rec['UPDATED'] = date('y-m-d H:i:s', time());
 
@@ -1773,14 +1661,12 @@ class tuya extends module
 
             $result = json_decode($apiResult, true);
             foreach ($result['result'] as $device) {
+                if (isset($device['moduleMap']['infrared'])) {
+                    continue;
+                }
 
                 $rec = SQLSelectOne('select * from tudevices where DEV_ID="' . DBSafe($device['devId']) . '"');
 
-                if (isset($device['moduleMap']['infrared'])) {
-                    $ir_flag = 1;
-                } else {
-                    $ir_flag = 0;
-                }
 
                 if (!isset($device['meshId'])) {
                     $device['meshId'] = '';
@@ -1788,7 +1674,7 @@ class tuya extends module
 
                 if ($rec == NULL) {
 
-                    $rec['IR_FLAG'] = $ir_flag;
+                    $rec['IR_FLAG'] = 0;
                     $rec['TITLE'] = $device['name'];
                     $rec['DEV_ICON'] = $device['iconUrl'];
                     $rec['DEV_ID'] = $device['devId'];
@@ -1819,13 +1705,13 @@ class tuya extends module
 
                     $uuid = isset($device['nodeId']) ? $device['nodeId'] : $device['uuid'];
 
-                    if ($rec['UUID'] != $uuid || $rec['IR_FLAG'] != $ir_flag || $rec['MAC'] != $device['mac'] || $rec['LOCAL_KEY'] != $device['localKey'] || $rec['PRODUCT_ID'] != $device['productId'] || $rec['GID_ID'] != $gid || $rec['MESH_ID'] != $device['meshId']) {
+                    if ($rec['UUID'] != $uuid || $rec['IR_FLAG'] != 0 || $rec['MAC'] != $device['mac'] || $rec['LOCAL_KEY'] != $device['localKey'] || $rec['PRODUCT_ID'] != $device['productId'] || $rec['GID_ID'] != $gid || $rec['MESH_ID'] != $device['meshId']) {
                         $rec['LOCAL_KEY'] = $device['localKey'];
                         $rec['PRODUCT_ID'] = $device['productId'];
                         $rec['GID_ID'] = $gid;
                         $rec['MESH_ID'] = $device['meshId'];
                         $rec['MAC'] = $device['mac'];
-                        $rec['IR_FLAG'] = $ir_flag;
+                        $rec['IR_FLAG'] = 0;
                         $rec['UUID'] = $uuid;
                         $rec['UPDATED'] = date('y-m-d H:i:s', time());
 
@@ -2674,23 +2560,6 @@ class tuya extends module
             SQLExec($sql);
         }
 
-        $rec = SQLSelectOne("SHOW TABLES LIKE 'tuircommand';");
-        if ($rec) {
-            $rec = SQLSelect("SHOW COLUMNS FROM tuircommand;");
-
-            foreach ($rec as $field) {
-                if ($field['Field'] == 'CPULSE_ALT') {
-                    if ($field['Type'] != "varchar(800)") {
-                        SQLExec("ALTER TABLE tuircommand MODIFY CPULSE_ALT varchar(800) NOT NULL DEFAULT '';");
-                    }
-                } elseif ($field['Field'] == 'COMPRESSPULSE') {
-                    if ($field['Type'] != "varchar(300)") {
-                        SQLExec("ALTER TABLE tuircommand MODIFY COMPRESSPULSE varchar(300) NOT NULL DEFAULT '';");
-                    }
-
-                }
-            }
-        }
         parent::install();
 
         setGlobal('cycle_tuyaControl', 'restart');
@@ -2793,14 +2662,6 @@ class tuya extends module
  turange: RANGE_VALUE varchar(10) NOT NULL DEFAULT ''
  turange: RANGE_DESCRIPTION varchar(50) NOT NULL DEFAULT ''
 
- tuircommand: ID int(10) unsigned NOT NULL auto_increment
- tuircommand: DEVICE_ID int(10) unsigned NOT NULL
- tuircommand: TITLE varchar(20) NOT NULL DEFAULT ''
- tuircommand: COMPRESSPULSE varchar(300) NOT NULL DEFAULT ''
- tuircommand: EXTS varchar(150) NOT NULL DEFAULT ''
- tuircommand: CPULSE_ALT varchar(800) NOT NULL DEFAULT ''
- tuircommand: CPULSE_ALT_FLAG boolean DEFAULT 0
- tuircommand: RF_FLAG boolean DEFAULT 0
 
 EOD;
 

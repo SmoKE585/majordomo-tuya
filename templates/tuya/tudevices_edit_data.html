@@ -1,193 +1,129 @@
-<form action="?" method="post" name="frmEdit" class="tuya-form" data-tuya-properties>[#if OK#]<div class="md-alert md-alert--success" role="status">
-        <div class="md-alert__body">
-            <#LANG_DATA_SAVED#>
+<form action="?" method="post" name="frmEdit" class="tuya-form" data-tuya-properties>
+    [#if OK#]<div class="md-alert md-alert--success" role="status"><div class="md-alert__body"><#LANG_DATA_SAVED#></div></div>[#endif#]
+    [#if ERR#]<div class="md-alert md-alert--danger" role="alert"><div class="md-alert__body"><#LANG_FILLOUT_REQURED#></div></div>[#endif#]
+    <div class="md-table-wrap">
+        <div class="md-table__toolbar">
+            <div class="md-table__search"><i class="ti ti-search" aria-hidden="true"></i><input type="search" placeholder="Название, значение или объект" aria-label="Поиск свойств" data-tuya-property-search></div>
+            <select class="md-table__filter" aria-label="Фильтр связей" data-tuya-property-filter><option value="">Все свойства</option><option value="linked">Со связью</option><option value="unlinked">Без связи</option></select>
+            <span class="md-table__meta" data-tuya-property-count></span>
         </div>
-    </div>[#endif#]
-    [#if ERR#]<div class="md-alert md-alert--danger" role="alert">
-        <div class="md-alert__body">
-            <#LANG_FILLOUT_REQURED#>
+        [#if PROPERTIES#]
+        <div class="md-table__scroll">
+            <table class="md-table tuya-properties-table" data-md-linkedobject-layout="table">
+                <colgroup><col class="tuya-properties-col-name"><col class="tuya-properties-col-value"><col><col><col><col class="tuya-properties-col-actions"></colgroup>
+                <thead><tr><th scope="col">Параметр Tuya</th><th scope="col">Значение</th><th scope="col">Объект</th><th scope="col">Свойство</th><th scope="col">Метод</th><th scope="col" aria-label="Действия"></th></tr></thead>
+                [#begin PROPERTIES#]
+                <tbody data-tuya-property x-data="{open: false}">
+                    <tr data-tuya-property-row>
+                        <td><strong>[#if ALIAS!=""#][#ALIAS#][#else#][#TITLE#][#endif#]</strong><small class="d-block text-muted">DP [#TITLE#] · [#UPDATED#]</small>[#if TRANSFORMED#]<span class="md-badge md-badge--outline">Преобразование</span>[#endif#]</td>
+                        <td class="tuya-property-value"><div class="tuya-property-preview">[#VALUE#]</div>[#if VALUE_LONG#]<details class="tuya-value-details"><summary>Полное значение</summary><pre>[#VALUE#]</pre></details>[#endif#]</td>
+                        <td><input class="md-input md-input--sm" type="text" id="linked_object[#ID#]" name="linked_object[#ID#]" value="[#LINKED_OBJECT#]" aria-label="Объект для DP [#TITLE#]"></td>
+                        <td><input class="md-input md-input--sm" type="text" id="linked_property[#ID#]" name="linked_property[#ID#]" value="[#LINKED_PROPERTY#]" aria-label="Свойство для DP [#TITLE#]"></td>
+                        <td><input class="md-input md-input--sm" type="text" id="linked_method[#ID#]" name="linked_method[#ID#]" value="[#LINKED_METHOD#]" aria-label="Метод для DP [#TITLE#]">[#module name="linkedobject" object_field="linked_object<#PROPERTIES.ID#>" property_field="linked_property<#PROPERTIES.ID#>" method_field="linked_method<#PROPERTIES.ID#>" width="160"#]</td>
+                        <td><div class="md-table__actions">
+                            <button type="button" class="md-icon-btn md-icon-btn--sm" @click="open = !open" :aria-expanded="open" aria-controls="tuya-options-[#ID#]" aria-label="Преобразования DP [#TITLE#]" title="Преобразования и параметры"><i class="ti ti-adjustments" aria-hidden="true"></i></button>
+                            <a class="md-icon-btn md-icon-btn--sm md-icon-btn--danger" href="?data_source=tudevices&id=<#ID#>&tab=data&view_mode=edit_tudevices&delete_id=[#ID#]" data-tuya-delete aria-label="Удалить свойство" title="Удалить свойство"><i class="ti ti-trash" aria-hidden="true"></i></a>
+                        </div></td>
+                    </tr>
+                    <tr x-show="open" x-cloak id="tuya-options-[#ID#]" class="tuya-options-row">
+                        <td colspan="6">
+                            <div class="tuya-options-head"><strong>Настройка DP [#TITLE#]</strong><button type="button" class="md-btn md-btn--ghost md-btn--sm" @click="open = false">Свернуть</button></div>
+                            <div class="tuya-options-grid">
+                                <section class="tuya-options-group"><h2>Числа и замены</h2>
+<div class="md-field">
+    <label class="md-field__label" for="value_scale[#ID#]">Десятичных разрядов</label>
+    <input class="md-input md-input--sm" type="number" id="value_scale[#ID#]" name="value_scale[#ID#]" value="[#VALUE_SCALE#]">
+    <div class="md-field__hint">Значение делится на 10 в этой степени: 1 → 230 станет 23; 2 → 2300 станет 23. При 0 используются ручные делители.</div>
+</div>
+                                    <p class="md-field__hint">Выбирайте шкалу или ручные делители, не одновременно.</p>
+<div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dividedby10[#ID#]" value="1" [#if DIVIDEDBY10=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Делить на 10</span><span class="md-check__desc">230 → 23</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="При получении делит число на 10. При отправке связанного значения умножает обратно. Если включено несколько делителей, они применяются последовательно." aria-label="О параметре «Делить на 10»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div><div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dividedby100[#ID#]" value="1" [#if DIVIDEDBY100=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Делить на 100</span><span class="md-check__desc">2300 → 23</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="При получении делит число на 100. При отправке связанного значения умножает обратно. Если включено несколько делителей, они применяются последовательно." aria-label="О параметре «Делить на 100»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div><div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dividedby2[#ID#]" value="1" [#if DIVIDEDBY2=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Делить на 2</span><span class="md-check__desc">50 → 25</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="При получении делит число на 2. При отправке связанного значения умножает обратно. Если включено несколько делителей, они применяются последовательно." aria-label="О параметре «Делить на 2»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div><div class="md-field">
+    <label class="md-field__label" for="replace_list[#ID#]">Замена значений</label>
+    <input class="md-input md-input--sm" type="text" id="replace_list[#ID#]" name="replace_list[#ID#]" value="[#REPLACE_LIST#]">
+    <div class="md-field__hint">Пары через запятую: true=1,false=0. Слева значение Tuya, справа значение свойства; при отправке замена обратная.</div>
+</div>
+                                </section>
+                                <section class="tuya-options-group"><h2>Цвет освещения</h2>
+<div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="color_convert[#ID#]" value="1" [#if COLOR_CONVERT=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Цвет Tuya ↔ HEX</span><span class="md-check__desc">Для цветных ламп и LED-лент.</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="Преобразует формат цвета Tuya в шестизначный HEX без #, например FF0000 для красного. При изменении связанного свойства преобразует HEX обратно в формат Tuya." aria-label="О параметре «Цвет Tuya ↔ HEX»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div><div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="color_v2[#ID#]" value="1" [#if COLOR_V2=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Формат цвета V2</span><span class="md-check__desc">Выбор формата при отправке цвета.</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="Используется вместе с преобразованием цвета. V2 отправляет оттенок, насыщенность и яркость в 12-символьном формате Tuya. Нужен устройствам, использующим этот формат." aria-label="О параметре «Формат цвета V2»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div>
+                                    <p class="md-field__hint">Для обычных выключателей и числовых датчиков эти параметры не нужны.</p>
+                                </section>
+                                <section class="tuya-options-group"><h2>Разбор данных</h2>
+<div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="decode[#ID#]" value="1" [#if DECODE=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Декодировать Base64</span><span class="md-check__desc">Для строк, содержащих закодированные данные.</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="Декодирует входящую строку Base64. Например, SGVsbG8= превращается в Hello. Не включайте для обычных чисел или текста." aria-label="О параметре «Декодировать Base64»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div><div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="split[#ID#]" value="1" [#if SPLIT=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Разобрать JSON на параметры</span><span class="md-check__desc">Каждый ключ становится отдельным параметром устройства.</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="Разбирает входящий JSON-объект. Например, {&quot;temperature&quot;:23,&quot;humidity&quot;:40} создаёт отдельные параметры temperature и humidity. Булевы значения превращаются в 1 и 0." aria-label="О параметре «Разобрать JSON на параметры»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div><div class="tuya-option">
+    <label class="md-check">
+        <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="power_meter[#ID#]" value="1" [#if POWER_METER=="1"#]checked[#endif#]>
+        <span class="md-check__box" aria-hidden="true"><i class="ti ti-check" aria-hidden="true"></i></span>
+        <span class="md-check__text"><span class="md-check__label">Разобрать электропоказания</span><span class="md-check__desc">Напряжение, ток и мощность из одного пакета.</span></span>
+    </label>
+    <button type="button" class="md-icon-btn md-icon-btn--sm" data-bs-toggle="tooltip" data-bs-title="Для специального бинарного пакета Base64 длиной не менее 8 байт. Создаёт параметры с суффиксами _v (В), _a (А), _w (Вт). Не является счётчиком накопленной энергии." aria-label="О параметре «Разобрать электропоказания»"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+</div>
+                                    <p class="md-field__hint">Входящая обработка идёт по порядку: шкала → цвет → Base64 → JSON → электропоказания. Включайте только нужный для устройства разбор.</p>
+                                </section>
+                            </div>
+                            <div class="tuya-options-meta">
+<div class="md-field">
+    <label class="md-field__label" for="alias[#ID#]">Псевдоним DP</label>
+    <input class="md-input md-input--sm" type="text" id="alias[#ID#]" name="alias[#ID#]" value="[#ALIAS#]">
+    <div class="md-field__hint">Имя параметра, например switch_1. Используется модулем при обработке устройства.</div>
+</div>
+                                <dl class="tuya-metrics"><div><dt>Минимум</dt><dd>[#VALUE_MIN#]</dd></div><div><dt>Максимум</dt><dd>[#VALUE_MAX#]</dd></div><div><dt>Единица</dt><dd>[#VALUE_UNIT#]</dd></div><div><dt>Режим</dt><dd>[#MODE#]</dd></div><div><dt>Тип</dt><dd>[#VALUE_TYPE#]</dd></div></dl>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+                [#end PROPERTIES#]
+            </table>
         </div>
-    </div>[#endif#]<div class="md-table__toolbar">
-        <div class="md-table__search">
-            <i class="ti ti-search" aria-hidden="true"></i>
-            <input type="search" placeholder="Название, значение или объект" aria-label="Поиск свойств" data-tuya-property-search>
-        </div>
-        <select class="md-table__filter" aria-label="Фильтр связей" data-tuya-property-filter>
-            <option value="">Все свойства</option>
-            <option value="linked">Со связью</option>
-            <option value="unlinked">Без связи</option>
-        </select>
-        <span class="md-table__meta" data-tuya-property-count>
-        </span>
+        [#else#]<div class="md-empty"><span class="md-empty__icon"><i class="ti ti-list-details" aria-hidden="true"></i></span><div class="md-empty__title">Свойств пока нет</div><p class="md-empty__text">Дождитесь опроса устройства и откройте эту вкладку снова.</p></div>[#endif#]
+        <div data-tuya-properties-empty hidden><div class="md-empty"><span class="md-empty__icon"><i class="ti ti-search" aria-hidden="true"></i></span><div class="md-empty__title">Ничего не найдено</div><p class="md-empty__text">Измените запрос или фильтр связей.</p></div></div>
     </div>
-    <p class="md-field__hint">Измените связи и нажмите «Сохранить». Преобразования значений доступны в дополнительных параметрах каждого свойства.</p>
-    [#if PROPERTIES#]<div class="tuya-property-list">[#begin PROPERTIES#]<section class="md-card" data-tuya-property data-linked="[#if LINKED_OBJECT!=""#]linked[#else#]unlinked[#endif#]">
-            <header class="md-card__head">
-                <div class="md-card__titles">
-                    <h2 class="md-card__title">[#if ALIAS!=""#][#ALIAS#][#else#][#TITLE#][#endif#]</h2>
-                    <p class="md-card__subtitle">DP: [#TITLE#] · Обновлено: [#UPDATED#]</p>
-                </div>
-                <a class="md-icon-btn md-icon-btn--sm md-icon-btn--danger" href="?data_source=tudevices&id=<#ID#>&tab=data&view_mode=edit_tudevices&delete_id=[#ID#]" data-tuya-delete aria-label="Удалить свойство" title="Удалить свойство">
-                    <i class="ti ti-trash" aria-hidden="true"></i>
-                </a>
-            </header>
-            <div class="md-card__body">
-                <div class="tuya-property-value">
-                    <span class="md-field__label">Текущее значение</span>
-                    <pre>[#VALUE#]</pre>
-                </div>
-                <div class="tuya-link-grid">
-                    <div class="md-field">
-                        <label class="md-field__label" for="linked_object[#ID#]">Объект</label>
-                        <input class="md-input" type="text" id="linked_object[#ID#]" name="linked_object[#ID#]" value="[#LINKED_OBJECT#]" >
-                    </div>
-                    <div class="md-field">
-                        <label class="md-field__label" for="linked_property[#ID#]">Свойство</label>
-                        <input class="md-input" type="text" id="linked_property[#ID#]" name="linked_property[#ID#]" value="[#LINKED_PROPERTY#]" >
-                    </div>
-                    <div class="md-field">
-                        <label class="md-field__label" for="linked_method[#ID#]">Метод</label>
-                        <input class="md-input" type="text" id="linked_method[#ID#]" name="linked_method[#ID#]" value="[#LINKED_METHOD#]" >
-                    </div>
-                </div>[#module name="linkedobject" object_field="linked_object<#PROPERTIES.ID#>" property_field="linked_property<#PROPERTIES.ID#>" method_field="linked_method<#PROPERTIES.ID#>" width="200"#]
-                <details class="tuya-property-options">
-                    <summary>Преобразования и дополнительные параметры</summary>
-                    <div class="tuya-form-grid mt-3">
-                        <div class="md-field">
-                            <label class="md-field__label" for="alias[#ID#]">Псевдоним</label>
-                            <input class="md-input" type="text" id="alias[#ID#]" name="alias[#ID#]" value="[#ALIAS#]" >
-                        </div>
-                        <div class="md-field">
-                            <label class="md-field__label" for="value_scale[#ID#]">Шкала</label>
-                            <input class="md-input" type="text" id="value_scale[#ID#]" name="value_scale[#ID#]" value="[#VALUE_SCALE#]" >
-                        </div>
-                        <div class="md-field">
-                            <label class="md-field__label" for="replace_list[#ID#]">Замены</label>
-                            <input class="md-input" type="text" id="replace_list[#ID#]" name="replace_list[#ID#]" value="[#REPLACE_LIST#]" >
-                        </div>
-                    </div>
-                    <div class="tuya-checks mt-3">
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="color_convert[#ID#]" value="1" [#if COLOR_CONVERT=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Конвертировать цвета</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="color_v2[#ID#]" value="1" [#if COLOR_V2=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Цвета V2</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dividedby10[#ID#]" value="1" [#if DIVIDEDBY10=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Делить на 10</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dividedby100[#ID#]" value="1" [#if DIVIDEDBY100=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Делить на 100</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dividedby2[#ID#]" value="1" [#if DIVIDEDBY2=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Делить на 2</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="power_meter[#ID#]" value="1" [#if POWER_METER=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Счётчик</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="decode[#ID#]" value="1" [#if DECODE=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Декодировать</span>
-                            </span>
-                        </label>
-                        <label class="md-check">
-                            <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="split[#ID#]" value="1" [#if SPLIT=="1"#]checked[#endif#]>
-                            <span class="md-check__box" aria-hidden="true">
-                                <i class="ti ti-check" aria-hidden="true"></i>
-                            </span>
-                            <span class="md-check__text">
-                                <span class="md-check__label">Разбивать</span>
-                            </span>
-                        </label>
-                    </div>
-                    <dl class="tuya-metrics">
-                        <div>
-                            <dt>Минимум</dt>
-                            <dd>[#VALUE_MIN#]</dd>
-                        </div>
-                        <div>
-                            <dt>Максимум</dt>
-                            <dd>[#VALUE_MAX#]</dd>
-                        </div>
-                        <div>
-                            <dt>Единица</dt>
-                            <dd>[#VALUE_UNIT#]</dd>
-                        </div>
-                        <div>
-                            <dt>Режим</dt>
-                            <dd>[#MODE#]</dd>
-                        </div>
-                        <div>
-                            <dt>Тип</dt>
-                            <dd>[#VALUE_TYPE#]</dd>
-                        </div>
-                    </dl>
-                </details>
-            </div>
-        </section>[#end PROPERTIES#]</div>[#else#]<div class="md-empty">
-        <span class="md-empty__icon">
-            <i class="ti ti-list-details" aria-hidden="true"></i>
-        </span>
-        <div class="md-empty__title">Свойств пока нет</div>
-        <p class="md-empty__text">Дождитесь опроса устройства и откройте эту вкладку снова.</p>
-    </div>[#endif#]<div data-tuya-properties-empty hidden>
-        <div class="md-empty">
-            <span class="md-empty__icon">
-                <i class="ti ti-search" aria-hidden="true"></i>
-            </span>
-            <div class="md-empty__title">Ничего не найдено</div>
-            <p class="md-empty__text">Измените запрос или фильтр связей.</p>
-        </div>
-    </div>
-    <div class="tuya-form-actions">
-        <button type="submit" name="subm" value="Submit" class="md-btn md-btn--primary">
-            <i class="ti ti-check" aria-hidden="true"></i>Сохранить</button>
-        <a href="?data_source=tudevices" class="md-btn md-btn--secondary">Отмена</a>
-    </div>
-    <input type="hidden" name="id" value="<#ID#>">
-    <input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
-    <input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
-    <input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
-    <input type="hidden" name="tab" value="<#TAB#>">
-    <input type="hidden" name="mode" value="update">
+    <div class="tuya-form-actions"><button type="submit" name="subm" value="Submit" class="md-btn md-btn--primary"><i class="ti ti-check" aria-hidden="true"></i>Сохранить связи и параметры</button><a href="?data_source=tudevices" class="md-btn md-btn--secondary">Отмена</a></div>
+    <input type="hidden" name="id" value="<#ID#>"><input type="hidden" name="view_mode" value="<#VIEW_MODE#>"><input type="hidden" name="edit_mode" value="<#EDIT_MODE#>"><input type="hidden" name="data_source" value="<#DATA_SOURCE#>"><input type="hidden" name="tab" value="<#TAB#>"><input type="hidden" name="mode" value="update">
 </form>

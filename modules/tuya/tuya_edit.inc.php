@@ -159,6 +159,11 @@
 
 
       foreach ($properties as &$property) {
+         $property['VALUE_LONG'] = strlen((string)($property['VALUE'] ?? '')) > 80 || strpos((string)($property['VALUE'] ?? ''), "\n") !== false;
+         $property['TRANSFORMED'] = !empty($property['VALUE_SCALE']) || !empty($property['REPLACE_LIST']);
+         foreach (['DIVIDEDBY10', 'DIVIDEDBY100', 'DIVIDEDBY2', 'COLOR_CONVERT', 'COLOR_V2', 'DECODE', 'SPLIT', 'POWER_METER'] as $option) {
+            if (!empty($property[$option])) $property['TRANSFORMED'] = true;
+         }
          foreach ($property as $key => $value) {
             if (!is_array($value)) {
                $property[$key] = htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');

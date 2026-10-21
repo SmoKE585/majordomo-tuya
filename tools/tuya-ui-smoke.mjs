@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const core = path.resolve(process.argv[2] || path.join(moduleRoot, '../___majordomo'));
 const output = mkdtempSync(path.join(os.tmpdir(), 'tuya-ui-smoke-'));
-const variants = ['devices', 'properties', 'edit', 'new', 'error', 'empty', 'scene', 'ir', 'saved'];
+const variants = ['devices', 'properties', 'edit', 'new', 'error', 'empty', 'saved'];
 const pages = new Map(variants.map((variant) => [variant, execFileSync('php', [path.join(moduleRoot, 'tools/tuya-ui-fixture.php'), core, variant], { encoding: 'utf8' })]));
 let requests = [];
 const server = createServer((req, res) => {
@@ -19,7 +19,7 @@ const server = createServer((req, res) => {
         requests.push(Object.fromEntries(url.searchParams));
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         const op = url.searchParams.get('op');
-        res.end(op === 'scan' ? '<H4>Найдены устройства</H4><table><tr><td>Тестовое устройство</td><td>fixture-32</td><td>3.4</td><td>192.0.2.32</td></tr></table>' : (op === 'info_scene' ? 'array(1) {<br>"fixture" =&gt; "Свет" }' : ''));
+        res.end(op === 'scan' ? '<H4>Найдены устройства</H4><table><tr><td>Тестовое устройство</td><td>fixture-32</td><td>3.4</td><td>192.0.2.32</td></tr></table>' : '');
         return;
     }
     if (url.pathname === '/') {
@@ -147,27 +147,37 @@ try {
     await open('devices', 360, true);
     await check(`document.querySelector('.tuya-chips').scrollWidth <= document.querySelector('.tuya-chips').clientWidth`, 'long linked values also fit at 360px');
     await open('properties', 390, true);
-    await check(`document.querySelectorAll('[data-tuya-property]').length === 2 && document.querySelectorAll('[data-md-linkedobject]:not([hidden])').length >= 6`, 'property cards reuse the core linkedobject controls');
-    await check(`!document.querySelector('.tuya-property-value script') && document.querySelector('.tuya-property-value pre').textContent.includes('<script>')`, 'property values are escaped');
+    await check(`document.querySelectorAll('[data-tuya-property]').length === 2 && document.querySelectorAll('[data-md-linkedobject]:not([hidden])').length >= 6`, 'table rows reuse the core linkedobject controls');
+    await check(`!document.querySelector('.tuya-property-value script') && document.querySelector('.tuya-property-preview').textContent.includes('<script>')`, 'property values are escaped');
     await evaluate(`document.querySelector('[data-tuya-property-search]').value = 'Температура'; document.querySelector('[data-tuya-property-search]').dispatchEvent(new Event('input'));`);
     await check(`Array.from(document.querySelectorAll('[data-tuya-property]')).filter(card => !card.hidden).length === 1`, 'property search works');
     await check(`new FormData(document.querySelector('[data-tuya-properties]')).has('alias102')`, 'filtered properties remain in form submission');
+    await check(`document.querySelector('[data-tuya-property]').tagName === 'TBODY' && document.querySelector('[data-tuya-property-row]').getBoundingClientRect().height < 100`, 'properties are compact table rows');
+    await check(`getComputedStyle(document.getElementById('tuya-options-101')).display === 'none'`, 'advanced settings start collapsed');
+    await evaluate(`document.querySelector('[aria-controls="tuya-options-101"]').click()`);
+    await sleep(100);
+    await check(`getComputedStyle(document.getElementById('tuya-options-101')).display === 'table-row'`, 'advanced settings expand in place');
+    await check(`document.getElementById('tuya-options-101').querySelectorAll('[data-bs-toggle="tooltip"]').length === 8`, 'advanced flags have explanatory tooltips');
     await shot('properties-dark-mobile');
+    await open('properties', 1440, false);
+    await shot('properties-light-desktop');
+    await evaluate(`document.querySelector('[aria-controls="tuya-options-101"]').click()`);
+    await sleep(100);
+    await shot('options-light-desktop');
+    await check(`document.querySelectorAll('.md-linkedobject--table').length === 6 && getComputedStyle(document.querySelector('.md-linkedobject--table .md-linkedobject__foot')).display === 'none'`, 'shared dense layout removes repeated field panels');
+    await evaluate(`bootstrap.Tooltip.getOrCreateInstance(document.querySelector('#tuya-options-101 [data-bs-toggle="tooltip"]')).show()`);
+    await sleep(200);
+    await check(`document.querySelector('.tooltip-inner').textContent.includes('получении')`, 'parameter tooltips show real explanations');
+    await evaluate(`bootstrap.Tooltip.getInstance(document.querySelector('#tuya-options-101 [data-bs-toggle="tooltip"]')).hide(); document.querySelector('[name="decode101"]').checked = true; document.querySelector('[data-tuya-property-search]').value = 'Яркость'; document.querySelector('[data-tuya-property-search]').dispatchEvent(new Event('input'));`);
+    await check(`new FormData(document.querySelector('[data-tuya-properties]')).get('decode101') === '1'`, 'filtering retains changes in hidden advanced settings');
     await open('saved', 390, true);
-    await check(`document.querySelector('[data-tuya-property]').textContent.includes('Сохранённое свойство') && document.querySelector('.tuya-property-value pre').textContent.includes('<script>')`, 'saving a binding preserves current values');
+    await check(`document.querySelector('[data-tuya-property]').textContent.includes('Сохранённое свойство') && document.querySelector('.tuya-property-preview').textContent.includes('<script>')`, 'saving a binding preserves current values');
     await open('edit', 1440);
     await shot('editor-light-desktop');
-    for (const variant of ['edit', 'new', 'error', 'empty', 'scene', 'ir']) await open(variant, 390, true);
-    await evaluate(`document.querySelector('[data-tuya-action="run_ir"]').click()`);
-    await sleep(250);
-    assert.equal(requests.at(-1).op, 'run_ir');
-    passed++;
-    await check(`document.querySelector('[data-tuya-feedback]').textContent.includes('Команда отправлена')`, 'IR command feedback');
-    await evaluate(`window.fetch = async () => new Response('', {status: 500}); document.querySelector('[data-tuya-action="run_ir"]').click()`);
-    await sleep(250);
-    await check(`document.querySelector('[data-tuya-feedback]').textContent.includes('HTTP 500') && !document.querySelector('[data-tuya-action="run_ir"]').disabled`, 'failed command is visible and can be retried');
-    await open('scene', 390, true);
-    // Emulate the shell replacing module content, then running its registered initializers.
+    for (const variant of ['edit', 'new', 'error', 'empty']) await open(variant, 390, true);
+    await open('devices', 390, true);
+    await check(`!document.querySelector('[href*="tab=scene"]') && !document.querySelector('[href*="tab=ir"]')`, 'obsolete navigation is removed');
+    // Replacing content must reinitialize registered controls without jQuery.
     await evaluate(`(async () => {
         var html = await fetch(location.href).then(r => r.text());
         var parsed = new DOMParser().parseFromString(html, 'text/html');
@@ -175,13 +185,9 @@ try {
         MDJAdminUI.boot(document);
     })()`);
     await check(`document.querySelector('[data-tuya-page]').dataset.tuyaReady === '1'`, 'module reinitializes after partLoad');
-    await evaluate(`document.querySelector('[data-tuya-action="info_scene"]').click()`);
+    await evaluate(`window.fetch = async () => new Response('', {status: 500}); document.querySelector('[data-tuya-action="scan"]').click()`);
     await sleep(250);
-    await check(`document.querySelector('#tuya-scene-info').classList.contains('show') && document.querySelector('[data-tuya-scene-content]').textContent.includes('Свет')`, 'scene details use a Bootstrap modal');
-    await evaluate(`bootstrap.Modal.getInstance(document.getElementById('tuya-scene-info')).hide(); document.querySelector('[data-tuya-action="run_scene"]').click()`);
-    await sleep(250);
-    assert.equal(requests.at(-1).op, 'run_scene');
-    passed++;
+    await check(`document.querySelector('[data-tuya-feedback]').textContent.includes('HTTP 500') && !document.querySelector('[data-tuya-action="scan"]').disabled`, 'failed scanning can be retried');
     assert.deepEqual(errors, [], 'No uncaught browser exceptions.');
     passed++;
     console.log(JSON.stringify({ passed, screenshots: output, realServices: false }, null, 2));

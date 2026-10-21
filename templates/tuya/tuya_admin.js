@@ -23,8 +23,6 @@
     async function request(page, op, button) {
         var url = new URL(page.dataset.tuyaApi, window.location.href);
         url.searchParams.set('op', op);
-        if (button.dataset.devId) url.searchParams.set('dev_id', button.dataset.devId);
-        if (button.dataset.id) url.searchParams.set('id', button.dataset.id);
         var controller = new AbortController();
         var timeout = window.setTimeout(function () { controller.abort(); }, 45000);
         try {
@@ -95,21 +93,10 @@
             panel.hidden = false;
             output = panel.querySelector('[data-tuya-scan-content]');
             output.textContent = 'Ищем устройства в локальной сети…';
-        } else if (op === 'info_scene') {
-            output = document.querySelector('[data-tuya-scene-content]');
-            output.textContent = 'Загружаем действия сцены…';
-            window.bootstrap.Modal.getOrCreateInstance(document.getElementById('tuya-scene-info')).show(button);
         }
         try {
             var result = await request(page, op, button);
-            if (op === 'scan') {
-                scanResult(output, result);
-            } else if (op === 'info_scene') {
-                output.textContent = responseText(result) || 'Сцена не содержит доступных действий.';
-            } else {
-                if (result.trim()) throw new Error('Сервер вернул неожиданный ответ. Проверьте журнал Tuya.');
-                feedback(page, 'success', op === 'run_ir' ? 'Команда отправлена пульту.' : 'Запрос на запуск сцены отправлен.');
-            }
+            scanResult(output, result);
         } catch (error) {
             var message = error.name === 'AbortError' ? 'Время ожидания истекло. Проверьте соединение и повторите запрос.' : (error.message || 'Не удалось связаться с сервером.');
             if (output) output.textContent = message;
@@ -124,19 +111,19 @@
     function initProperties(form) {
         var search = form.querySelector('[data-tuya-property-search]');
         var filter = form.querySelector('[data-tuya-property-filter]');
-        var cards = Array.from(form.querySelectorAll('[data-tuya-property]'));
+        var groups = Array.from(form.querySelectorAll('[data-tuya-property]'));
         function render() {
             var query = search.value.toLocaleLowerCase().trim();
             var count = 0;
-            cards.forEach(function (card) {
-                var object = card.querySelector('input[name^="linked_object"]');
+            groups.forEach(function (group) {
+                var object = group.querySelector('input[name^="linked_object"]');
                 var linked = object && object.value.trim() ? 'linked' : 'unlinked';
-                var text = card.textContent + ' ' + Array.from(card.querySelectorAll('input')).map(function (input) { return input.value; }).join(' ');
-                card.hidden = (filter.value && filter.value !== linked) || text.toLocaleLowerCase().indexOf(query) === -1;
-                if (!card.hidden) count++;
+                var text = group.querySelector('[data-tuya-property-row]').textContent + ' ' + Array.from(group.querySelectorAll('input')).map(function (input) { return input.value; }).join(' ');
+                group.hidden = (filter.value && filter.value !== linked) || text.toLocaleLowerCase().indexOf(query) === -1;
+                if (!group.hidden) count++;
             });
-            form.querySelector('[data-tuya-property-count]').textContent = 'Показано ' + count + ' из ' + cards.length;
-            form.querySelector('[data-tuya-properties-empty]').hidden = !cards.length || count !== 0;
+            form.querySelector('[data-tuya-property-count]').textContent = 'Показано ' + count + ' из ' + groups.length;
+            form.querySelector('[data-tuya-properties-empty]').hidden = !groups.length || count !== 0;
         }
         search.addEventListener('input', render);
         filter.addEventListener('change', render);
