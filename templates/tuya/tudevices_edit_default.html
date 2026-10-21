@@ -1,153 +1,225 @@
-<!-- Редактирование устройства -->
-<form action="?" method="post" enctype="multipart/form-data" name="frmEdit">
-   [#if OK#]
-      <div class="alert alert-success"><#LANG_DATA_SAVED#></div>
-   [#endif#]
-   [#if ERR#]
-      <div class="alert alert-danger"><#LANG_FILLOUT_REQURED#></div>
-   [#endif#]
-
-   [#if ID=""#]
-      <legend><#LANG_NEW_RECORD#></legend>
-   [#endif#]
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label"[#if ERR_TITLE#] style="color:red;font-weight:bold"[#endif#]>
-         <#LANG_TITLE#>: (*)
-      </label>
-      <div class="col-sm-4"><input type="text" class="form-control" name="title" value="[#TITLE#]" id="title"></div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">
-         <#LANG_TYPE#>:
-      </label>
-      <div class="col-sm-4 d-flex align-items-center gap-2">
-         <input type="text" class="form-control" name="type" value="[#TYPE#]" id="type">
-         <img src="[#DEV_ICON#]" height="40" onerror="this.src='../templates/tuya/img/tuya.png'">
-      </div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">
-         Device ID:
-      </label>
-      <div class="col-sm-4"><input type="text" class="form-control" name="dev_id" value="[#DEV_ID#]" id="dev_id"></div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">
-         MAC-адрес:
-      </label>
-      <div class="col-sm-4"><input type="text" class="form-control" name="mac" value="[#MAC#]" id="mac"></div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">
-         Локальный ключ:
-      </label>
-      <div class="col-sm-4"><input type="text" class="form-control" name="local_key" value="[#LOCAL_KEY#]" id="local_key"></div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">
-         Локальный IP:
-      </label>
-      <div class="col-sm-4"><input type="text" class="form-control" name="dev_ip" value="[#DEV_IP#]" id="dev_ip"></div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">Управление:</label>
-      <div class="col-sm-6">
-         <div class="form-check form-check-inline">
-            <input type="radio" name="control" value="0" class="form-check-input" id="ctrl_cloud"[#if CONTROL=="0"#] checked[#endif#]>
-            <label class="form-check-label" for="ctrl_cloud">Через облако</label>
-         </div>
-         <div class="form-check form-check-inline">
-            <input type="radio" name="control" value="1" class="form-check-input" id="ctrl_local"[#if CONTROL=="1"#] checked[#endif#]>
-            <label class="form-check-label" for="ctrl_local">Локально</label>
-         </div>
-         <div class="form-check form-check-inline">
-            <input type="radio" name="control" value="2" class="form-check-input" id="ctrl_mqtt"[#if CONTROL=="2"#] checked[#endif#]>
-            <label class="form-check-label" for="ctrl_mqtt">Через MQTT</label>
-         </div>
-      </div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">Получение статуса:</label>
-      <div class="col-sm-6">
-         <div class="form-check form-check-inline">
-            <input type="radio" name="status" value="0" class="form-check-input" id="stat_cloud"[#if STATUS=="0"#] checked[#endif#]>
-            <label class="form-check-label" for="stat_cloud">Через облако</label>
-         </div>
-         <div class="form-check form-check-inline">
-            <input type="radio" name="status" value="1" class="form-check-input" id="stat_local"[#if STATUS=="1"#] checked[#endif#]>
-            <label class="form-check-label" for="stat_local">Локально</label>
-         </div>
-         <div class="form-check form-check-inline">
-            <input type="radio" name="status" value="2" class="form-check-input" id="stat_mqtt"[#if STATUS=="2"#] checked[#endif#]>
-            <label class="form-check-label" for="stat_mqtt">Через MQTT</label>
-         </div>
-      </div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">Версия протокола:</label>
-      <div class="col-sm-4">
-         <select name="tuya_ver" class="form-select">
-            <option [#if TUYA_VER=="3.1"#] selected[#endif#]>3.1</option>
-            <option [#if TUYA_VER=="3.2"#] selected[#endif#]>3.2</option>
-            <option [#if TUYA_VER=="3.3"#] selected[#endif#]>3.3</option>
-            <option [#if TUYA_VER=="3.4"#] selected[#endif#]>3.4</option>
-            <option [#if TUYA_VER=="3.5"#] selected[#endif#]>3.5</option>
-         </select>
-      </div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">Доп. пакет статуса:</label>
-      <div class="col-sm-6">
-         <div class="form-check form-check-inline">
-            <input type="checkbox" name="send12" id="send12" value="1" class="form-check-input" [#if SEND12=='1'#]checked[#endif#]>
-            <label class="form-check-label" for="send12">Посылать</label>
-         </div>
-         <input type="text" class="form-control form-control-sm d-inline-block" style="width:auto" name="flags12" value="[#FLAGS12#]" id="flags12">
-      </div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label">Свойства DSP:</label>
-      <div class="col-sm-4">
-         <div class="form-check">
-            <input type="checkbox" name="dsp_filled" id="dsp_filled" value="1" class="form-check-input" [#if DSP_FILLED=='1'#]checked[#endif#]>
-            <label class="form-check-label" for="dsp_filled">Заполнены</label>
-         </div>
-      </div>
-   </div>
-
-   <div class="row mb-3">
-      <label class="col-sm-3 col-form-label"><#LANG_UPDATED#>:</label>
-      <div class="col-sm-8 d-flex align-items-center">
-         [#UPDATED#]
-      </div>
-   </div>
-
-   <div class="row">
-      <div class="col-sm-9 offset-sm-3">
-         [#if ID!=""#]
-            <button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_SUBMIT#></button>
-         [#else#]
-            <button type="submit" name="subm" value="Add" class="btn btn-primary"><#LANG_ADD#></button>
-         [#endif#]
-         <a href="?data_source=<#DATA_SOURCE#>" class="btn btn-outline-secondary"><#LANG_CANCEL#></a>
-      </div>
-   </div>
-
-   <input type="hidden" name="id" value="<#ID#>">
-   <input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
-   <input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
-   <input type="hidden" name="mode" value="update">
-   <input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
-   <input type="hidden" name="tab" value="<#TAB#>">
+<form action="?" method="post" name="frmEdit" class="tuya-form">[#if OK#]<div class="md-alert md-alert--success" role="status">
+        <div class="md-alert__body">
+            <#LANG_DATA_SAVED#>
+        </div>
+    </div>[#endif#]
+    [#if ERR#]<div class="md-alert md-alert--danger" role="alert">
+        <div class="md-alert__body">
+            <#LANG_FILLOUT_REQURED#>
+        </div>
+    </div>[#endif#]<section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Устройство</h2>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <div class="tuya-form-grid">
+                <div class="md-field">
+                    <label class="md-field__label" for="title">Название *</label>
+                    <input class="md-input" type="text" id="title" name="title" value="[#TITLE#]" required [#if ERR_TITLE#]aria-invalid="true" aria-describedby="title-error"[#endif#]>
+                    [#if ERR_TITLE#]<div class="md-field__error" id="title-error">Укажите название устройства.</div>[#endif#]
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="type">Тип</label>
+                    <input class="md-input" type="text" id="type" name="type" value="[#TYPE#]" >
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="dev_id">Device ID</label>
+                    <input class="md-input" type="text" id="dev_id" name="dev_id" value="[#DEV_ID#]" >
+                    <div class="md-field__hint">Идентификатор из Tuya / Smart Life.</div>
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="mac">MAC-адрес</label>
+                    <input class="md-input" type="text" id="mac" name="mac" value="[#MAC#]" >
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Локальное подключение</h2>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <div class="tuya-form-grid">
+                <div class="md-field">
+                    <label class="md-field__label" for="dev_ip">Локальный IP</label>
+                    <input class="md-input" type="text" id="dev_ip" name="dev_ip" value="[#DEV_IP#]" >
+                    <div class="md-field__hint">Адрес устройства в вашей сети.</div>
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="local_key">Локальный ключ</label>
+                    <div class="md-input-shell">
+                        <input class="md-input" type="password" id="local_key" name="local_key" value="[#LOCAL_KEY#]" autocomplete="off">
+                        <button type="button" class="md-input-action" data-md-password-toggle="local_key" aria-label="Показать пароль" aria-pressed="false">
+                            <i class="ti ti-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_ver">Версия протокола</label>
+                    <select class="md-select" name="tuya_ver" id="tuya_ver">
+                        <option value="3.1" [#if TUYA_VER=="3.1"#]selected[#endif#]>3.1</option>
+                        <option value="3.2" [#if TUYA_VER=="3.2"#]selected[#endif#]>3.2</option>
+                        <option value="3.3" [#if TUYA_VER=="3.3"#]selected[#endif#]>3.3</option>
+                        <option value="3.4" [#if TUYA_VER=="3.4"#]selected[#endif#]>3.4</option>
+                        <option value="3.5" [#if TUYA_VER=="3.5"#]selected[#endif#]>3.5</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Каналы связи</h2>
+                <p class="md-card__subtitle">Управление и получение статуса можно настроить независимо.</p>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <fieldset class="tuya-fieldset">
+                <legend class="md-field__label">Управление</legend>
+                <div class="md-choice-group" role="radiogroup" aria-label="Управление">
+                    <label class="md-choice">
+                        <input class="md-choice__input" data-md-raw-checkbox type="radio" name="control" value="0" [#if CONTROL=="0"#]checked[#endif#]>
+                        <span class="md-choice__surface">
+                            <span class="md-choice__icon">
+                                <i class="ti ti-cloud" aria-hidden="true"></i>
+                            </span>
+                            <span class="md-choice__body">
+                                <span class="md-choice__title">Облако</span>
+                                <span class="md-choice__desc">Через аккаунт Tuya</span>
+                            </span>
+                            <span class="md-choice__marker" aria-hidden="true">
+                            </span>
+                        </span>
+                    </label>
+                    <label class="md-choice">
+                        <input class="md-choice__input" data-md-raw-checkbox type="radio" name="control" value="1" [#if CONTROL=="1" || ID==""#]checked[#endif#]>
+                        <span class="md-choice__surface">
+                            <span class="md-choice__icon">
+                                <i class="ti ti-wifi" aria-hidden="true"></i>
+                            </span>
+                            <span class="md-choice__body">
+                                <span class="md-choice__title">Локально</span>
+                                <span class="md-choice__desc">Напрямую в вашей сети</span>
+                            </span>
+                            <span class="md-choice__marker" aria-hidden="true">
+                            </span>
+                        </span>
+                    </label>
+                    <label class="md-choice">
+                        <input class="md-choice__input" data-md-raw-checkbox type="radio" name="control" value="2" [#if CONTROL=="2"#]checked[#endif#]>
+                        <span class="md-choice__surface">
+                            <span class="md-choice__icon">
+                                <i class="ti ti-broadcast" aria-hidden="true"></i>
+                            </span>
+                            <span class="md-choice__body">
+                                <span class="md-choice__title">MQTT</span>
+                                <span class="md-choice__desc">Через платформу IoT</span>
+                            </span>
+                            <span class="md-choice__marker" aria-hidden="true">
+                            </span>
+                        </span>
+                    </label>
+                </div>
+            </fieldset>
+            <fieldset class="tuya-fieldset">
+                <legend class="md-field__label">Получение статуса</legend>
+                <div class="md-choice-group" role="radiogroup" aria-label="Получение статуса">
+                    <label class="md-choice">
+                        <input class="md-choice__input" data-md-raw-checkbox type="radio" name="status" value="0" [#if STATUS=="0"#]checked[#endif#]>
+                        <span class="md-choice__surface">
+                            <span class="md-choice__icon">
+                                <i class="ti ti-cloud" aria-hidden="true"></i>
+                            </span>
+                            <span class="md-choice__body">
+                                <span class="md-choice__title">Облако</span>
+                                <span class="md-choice__desc">Через аккаунт Tuya</span>
+                            </span>
+                            <span class="md-choice__marker" aria-hidden="true">
+                            </span>
+                        </span>
+                    </label>
+                    <label class="md-choice">
+                        <input class="md-choice__input" data-md-raw-checkbox type="radio" name="status" value="1" [#if STATUS=="1" || ID==""#]checked[#endif#]>
+                        <span class="md-choice__surface">
+                            <span class="md-choice__icon">
+                                <i class="ti ti-wifi" aria-hidden="true"></i>
+                            </span>
+                            <span class="md-choice__body">
+                                <span class="md-choice__title">Локально</span>
+                                <span class="md-choice__desc">Напрямую в вашей сети</span>
+                            </span>
+                            <span class="md-choice__marker" aria-hidden="true">
+                            </span>
+                        </span>
+                    </label>
+                    <label class="md-choice">
+                        <input class="md-choice__input" data-md-raw-checkbox type="radio" name="status" value="2" [#if STATUS=="2"#]checked[#endif#]>
+                        <span class="md-choice__surface">
+                            <span class="md-choice__icon">
+                                <i class="ti ti-broadcast" aria-hidden="true"></i>
+                            </span>
+                            <span class="md-choice__body">
+                                <span class="md-choice__title">MQTT</span>
+                                <span class="md-choice__desc">Через платформу IoT</span>
+                            </span>
+                            <span class="md-choice__marker" aria-hidden="true">
+                            </span>
+                        </span>
+                    </label>
+                </div>
+            </fieldset>
+        </div>
+    </section>
+    <section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Дополнительные параметры</h2>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <div class="tuya-checks">
+                <label class="md-check">
+                    <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="send12" value="1" [#if SEND12=="1"#]checked[#endif#]>
+                    <span class="md-check__box" aria-hidden="true">
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="md-check__text">
+                        <span class="md-check__label">Посылать дополнительный пакет статуса</span>
+                    </span>
+                </label>
+                <label class="md-check">
+                    <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="dsp_filled" value="1" [#if DSP_FILLED=="1"#]checked[#endif#]>
+                    <span class="md-check__box" aria-hidden="true">
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="md-check__text">
+                        <span class="md-check__label">Свойства DSP заполнены</span>
+                    </span>
+                </label>
+            </div>
+            <div class="tuya-form-grid mt-3">
+                <div class="md-field">
+                    <label class="md-field__label" for="flags12">Флаги дополнительного пакета</label>
+                    <input class="md-input" type="text" id="flags12" name="flags12" value="[#FLAGS12#]" >
+                </div>
+            </div>
+            <p class="md-field__hint mt-3 mb-0">Обновлено: [#UPDATED#]</p>
+        </div>
+    </section>
+    <div class="tuya-form-actions">
+        <button type="submit" name="subm" value="Submit" class="md-btn md-btn--primary">
+            <i class="ti ti-check" aria-hidden="true"></i>Сохранить</button>
+        <a href="?data_source=tudevices" class="md-btn md-btn--secondary">Отмена</a>
+    </div>
+    <input type="hidden" name="id" value="<#ID#>">
+    <input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
+    <input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
+    <input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
+    <input type="hidden" name="tab" value="<#TAB#>">
+    <input type="hidden" name="mode" value="update">
 </form>

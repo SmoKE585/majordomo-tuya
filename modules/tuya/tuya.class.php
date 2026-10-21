@@ -155,22 +155,22 @@ class tuya extends module
         }
 
 
-        $out['TUYA_USERNAME'] = $this->config['TUYA_USERNAME'];
-        $out['TUYA_PASSWD'] = $this->config['TUYA_PASSWD'];
-        $out['TUYA_INTERVAL'] = $this->config['TUYA_INTERVAL'];
-        $out['TUYA_LOCAL_INTERVAL'] = $this->config['TUYA_LOCAL_INTERVAL'];
-        $out['TUYA_LOCAL_IP'] = $this->config['TUYA_LOCAL_IP'];
-        $out['TUYA_BZTYPE'] = $this->config['TUYA_BZTYPE'];
-        $out['TUYA_CCODE'] = $this->config['TUYA_CCODE'];
-        $out['TUYA_SID'] = $this->config['TUYA_SID'];
-        $out['TUYA_WEB'] = $this->config['TUYA_WEB'];
-        $out['TUYA_WEB_INTERVAL'] = $this->config['TUYA_WEB_INTERVAL'];
-        $out['TUYA_WEB_ENDPOINT'] = $this->config['TUYA_WEB_ENDPOINT'];
-        $out['TUYA_CYCLE_DEBUG'] = $this->config['TUYA_CYCLE_DEBUG'];
-        $out['TUYA_HA'] = $this->config['TUYA_HA'];
-        $out['TUYA_IOT'] = $this->config['TUYA_IOT'];
-        $out['TUYA_CLIENT_ID'] = $this->config['TUYA_CLIENT_ID'];
-        $out['TUYA_CLIENT_SECRET'] = $this->config['TUYA_CLIENT_SECRET'];
+        $out['TUYA_USERNAME'] = htmlspecialchars((string)($this->config['TUYA_USERNAME'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_PASSWD'] = htmlspecialchars((string)($this->config['TUYA_PASSWD'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_INTERVAL'] = htmlspecialchars((string)($this->config['TUYA_INTERVAL'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_LOCAL_INTERVAL'] = htmlspecialchars((string)($this->config['TUYA_LOCAL_INTERVAL'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_LOCAL_IP'] = htmlspecialchars((string)($this->config['TUYA_LOCAL_IP'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_BZTYPE'] = htmlspecialchars((string)($this->config['TUYA_BZTYPE'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_CCODE'] = htmlspecialchars((string)($this->config['TUYA_CCODE'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_SID'] = htmlspecialchars((string)($this->config['TUYA_SID'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_WEB'] = htmlspecialchars((string)($this->config['TUYA_WEB'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_WEB_INTERVAL'] = htmlspecialchars((string)($this->config['TUYA_WEB_INTERVAL'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_WEB_ENDPOINT'] = htmlspecialchars((string)($this->config['TUYA_WEB_ENDPOINT'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_CYCLE_DEBUG'] = htmlspecialchars((string)($this->config['TUYA_CYCLE_DEBUG'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_HA'] = htmlspecialchars((string)($this->config['TUYA_HA'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_IOT'] = htmlspecialchars((string)($this->config['TUYA_IOT'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_CLIENT_ID'] = htmlspecialchars((string)($this->config['TUYA_CLIENT_ID'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_CLIENT_SECRET'] = htmlspecialchars((string)($this->config['TUYA_CLIENT_SECRET'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         if ($this->view_mode == 'update_settings') {
 

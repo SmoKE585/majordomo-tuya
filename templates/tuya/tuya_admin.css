@@ -1,0 +1,55 @@
+/* Module layouts; controls and surfaces come from the MajorDoMo UI Kit. */
+.tuya-page { min-width: 0; }
+.tuya-page [hidden] { display: none !important; }
+body.md-admin-shell .tuya-page .md-ui-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tuya-form, .tuya-property-list { display: grid; gap: var(--md-ui-space-4); min-width: 0; }
+.tuya-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--md-ui-space-4); }
+.tuya-link-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--md-ui-space-4); }
+.tuya-form .md-field, .tuya-link-grid > *, .tuya-form-grid > * { min-width: 0; }
+.tuya-form .md-input, .tuya-form .md-select { width: 100%; }
+.tuya-checks, .tuya-form-actions, .tuya-remote-keys, .tuya-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--md-ui-space-3); }
+.tuya-chips { gap: var(--md-ui-space-1); margin-top: var(--md-ui-space-2); }
+.tuya-page .tuya-chips .md-badge { flex-wrap: wrap; max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.tuya-device-cell { min-width: 260px; }
+.tuya-device-body { min-width: 0; max-width: 520px; overflow-wrap: anywhere; }
+.tuya-device-body > .md-badge { margin-left: var(--md-ui-space-1); }
+.tuya-id, .tuya-code { overflow-wrap: anywhere; white-space: pre-wrap; word-break: break-word; }
+.tuya-page .md-ui-hero__title, .tuya-page .md-card__title { overflow-wrap: anywhere; }
+.tuya-fieldset { border: 0; padding: 0; margin: 0 0 var(--md-ui-space-4); min-width: 0; }
+.tuya-fieldset:last-child { margin-bottom: 0; }
+.tuya-property-value { margin-bottom: var(--md-ui-space-4); }
+.tuya-property-value pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--md-ui-space-2) 0 0; color: var(--md-ui-text); background: var(--md-ui-surface-2); border-radius: var(--md-ui-radius-sm); padding: var(--md-ui-space-3); }
+.tuya-property-options { margin-top: var(--md-ui-space-4); border-top: 1px solid var(--md-ui-border); padding-top: var(--md-ui-space-3); }
+.tuya-property-options summary { cursor: pointer; color: var(--md-ui-text-soft); }
+.tuya-property-options summary:focus-visible { outline: 2px solid var(--md-ui-primary); outline-offset: 4px; }
+.tuya-metrics { display: flex; flex-wrap: wrap; gap: var(--md-ui-space-4); margin: var(--md-ui-space-4) 0 0; }
+.tuya-metrics dt { font-weight: 400; color: var(--md-ui-muted); font-size: var(--md-ui-fs-xs); }
+.tuya-metrics dd { margin: 0; overflow-wrap: anywhere; }
+.tuya-remote-keys .md-btn { min-height: var(--md-ui-control-lg); }
+.tuya-scan-result { overflow-x: auto; }
+.tuya-scan-result table { min-width: 500px; }
+.tuya-page .md-table__actions { flex-wrap: nowrap; }
+#tuya-scene-info .tuya-code { margin: 0; color: var(--md-ui-text); }
+@media (max-width: 767px) {
+  .tuya-form-grid, .tuya-link-grid { grid-template-columns: minmax(0, 1fr); }
+  body.md-admin-shell .tuya-page .md-ui-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body.md-admin-shell .tuya-page .md-kpi__meta { display: none; }
+  body.md-admin-shell .tuya-page .md-kpi { min-height: 0; padding: var(--md-ui-space-3); }
+  body.md-admin-shell .tuya-page .md-kpi__icon { display: none; }
+  body.md-admin-shell .tuya-page [data-tuya-devices] .md-table__name { min-width: 0; }
+  .tuya-page [data-tuya-devices] .md-table__icon { display: none; }
+  .tuya-page [data-tuya-devices] .md-table { table-layout: fixed; }
+  .tuya-page [data-tuya-devices] th:nth-child(3) { width: 90px; }
+  .tuya-page [data-tuya-devices] th:nth-child(4) { width: 80px; }
+  .tuya-page [data-tuya-devices] .tuya-device-cell { min-width: 0; width: 100%; }
+  .tuya-page [data-tuya-devices] th:nth-child(2), .tuya-page [data-tuya-devices] td:nth-child(2) { display: none; }
+  body.md-admin-shell .tuya-page [data-tuya-devices] td, body.md-admin-shell .tuya-page [data-tuya-devices] th { padding-inline: var(--md-ui-space-2); }
+  .tuya-page .md-ui-hero__actions { width: 100%; }
+  .tuya-page .md-ui-hero__actions .md-btn { flex: 1 1 auto; }
+  .tuya-page .md-choice-group { grid-template-columns: minmax(0, 1fr); }
+  .tuya-page .md-card__head { flex-wrap: wrap; }
+  .tuya-form-actions .md-btn { flex: 1 1 auto; }
+  .tuya-checks { align-items: flex-start; flex-direction: column; }
+}
+
+.tuya-page .md-table th { position: relative; }

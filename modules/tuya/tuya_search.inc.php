@@ -209,14 +209,14 @@ if ($tab == 'scene') {
    $res = SQLSelect("SELECT * FROM tudevices WHERE $qry ORDER BY $sortby_sql");
    $last_i = 0;
 
-   if ($res[0]['ID']) {
+   if (!empty($res[0]['ID'])) {
 
       $total = count($res);
       for ($i = 0; $i < $total; $i++) {
 
          $commands = SQLSelect("SELECT tucommands.*, tuvalues.VALUE, tuvalues.UPDATED FROM tucommands LEFT JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID=" . $res[$i]['ID'] . " and TITLE!='state' AND TITLE!='report' ORDER BY TITLE");
 
-         if ($commands[0]['ID']) {
+         if (!empty($commands[0]['ID'])) {
             $totalc = count($commands);
             $sub_dev = array();
             $linked_commands = array();
@@ -229,8 +229,8 @@ if ($tab == 'scene') {
 
                // Определяем алиас (если есть — используем его, иначе числовой TITLE)
                $alias = ($commands[$ic]['ALIAS'] != '') ? $commands[$ic]['ALIAS'] : $commands[$ic]['TITLE'];
-               $value = $commands[$ic]['VALUE'] ?? '';
-               $unit  = $commands[$ic]['VALUE_UNIT'] ?? '';
+               $value = (string)($commands[$ic]['VALUE'] ?? '');
+               $unit  = (string)($commands[$ic]['VALUE_UNIT'] ?? '');
 
                // Индикаторы для значков включения/подсветки
                if ($alias == 'led_switch' || $alias == 'switch_led') {
@@ -276,9 +276,9 @@ if ($tab == 'scene') {
             if (!empty($linked_commands)) {
                $parts = array();
                foreach ($linked_commands as $lc) {
-                  $v = mb_strlen($lc['value']) > 25 ? mb_substr($lc['value'], 0, 25) . '…' : $lc['value'];
-                  $unitHtml = $lc['unit'] ? ' <span class=\"unit\">' . htmlspecialchars($lc['unit'], ENT_QUOTES, 'UTF-8') . '</span>' : '';
-                  $parts[] = '<span class=\"tu-prop-chip\" title=\"' . htmlspecialchars($lc['link'], ENT_QUOTES, 'UTF-8') . '\"><i>' . htmlspecialchars($lc['alias'], ENT_QUOTES, 'UTF-8') . '</i> ' . htmlspecialchars($v, ENT_QUOTES, 'UTF-8') . $unitHtml . '</span>';
+                  $v = mb_strlen((string)$lc['value']) > 25 ? mb_substr((string)$lc['value'], 0, 25) . '…' : (string)$lc['value'];
+                  $unitHtml = $lc['unit'] ? ' <span class="unit">' . htmlspecialchars($lc['unit'], ENT_QUOTES, 'UTF-8') . '</span>' : '';
+                  $parts[] = '<span class="md-badge md-badge--outline" title="' . htmlspecialchars($lc['link'], ENT_QUOTES, 'UTF-8') . '"><i>' . htmlspecialchars($lc['alias'], ENT_QUOTES, 'UTF-8') . '</i> ' . htmlspecialchars($v, ENT_QUOTES, 'UTF-8') . $unitHtml . '</span>';
                }
                $res[$i]['COMMANDS'] = implode('', $parts);
             }
@@ -305,4 +305,25 @@ if ($tab == 'scene') {
    }
 
 }
-$out['RESULT'] = $res;
+$out['TOTAL_DEVICES'] = count($res);
+$out['ONLINE_DEVICES'] = 0;
+foreach ($res as $device) {
+   if ((int)($device['ONLINE'] ?? 0) === 1) {
+      $out['ONLINE_DEVICES']++;
+   }
+}
+$out['OFFLINE_DEVICES'] = $out['TOTAL_DEVICES'] - $out['ONLINE_DEVICES'];
+
+// Tuya names/values are untrusted, including strings used in data attributes.
+// COMMANDS contains locally generated HTML with individually escaped values.
+$escapeDisplay = function ($items) use (&$escapeDisplay) {
+   foreach ($items as $key => $value) {
+      if (is_array($value)) {
+         $items[$key] = $escapeDisplay($value);
+      } elseif ($key !== 'COMMANDS') {
+         $items[$key] = htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      }
+   }
+   return $items;
+};
+$out['RESULT'] = $escapeDisplay($res);

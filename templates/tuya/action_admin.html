@@ -1,228 +1,170 @@
-<!-- action admin -->
-[#if DATA_SOURCE="tudevices" || DATA_SOURCE=""#]
-
-[#if VIEW_MODE="search_tudevices" || VIEW_MODE=""#]
-
-   <!-- верхняя панель -->
-   <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-      <img src="../templates/tuya/img/tuya.png" width="28" height="28" alt="Tuya" style="flex-shrink:0">
-
-      <a class="btn btn-outline-secondary btn-sm" href="#api_settings" data-bs-toggle="collapse" role="button" aria-expanded="false">
-         <i class="bi bi-gear"></i> Настройки
-      </a>
-
-      <span class="d-flex align-items-center gap-1 ms-2 flex-wrap">
-         [#if CYCLERUN==1#]
-            <span class="badge bg-success bg-opacity-75">опрос</span>
-         [#else#]
-            <span class="badge bg-danger bg-opacity-75">опрос</span>
-         [#endif#]
-         [#if LOCAL_CYCLERUN==1#]
-            <span class="badge bg-success bg-opacity-75">локальный</span>
-         [#else#]
-            <span class="badge bg-danger bg-opacity-75">локальный</span>
-         [#endif#]
-         [#if TUYA_IOT=='1'#]
-            [#if IOT_CYCLERUN==1#]
-               <span class="badge bg-success bg-opacity-75">IoT</span>
-            [#else#]
-               <span class="badge bg-danger bg-opacity-75">IoT</span>
-            [#endif#]
-         [#endif#]
-      </span>
-
-      <button class="btn btn-link btn-sm text-muted ms-auto" data-bs-toggle="modal" data-bs-target="#about">
-         <i class="bi bi-info-circle"></i> О модуле
-      </button>
-   </div>
-
-   <!-- панель настроек (свёрнута) -->
-   <div class="collapse mb-3" id="api_settings">
-      <div class="card shadow-sm border">
-         <div class="card-header bg-transparent">
-            <i class="bi bi-cloud me-1"></i> Подключение к Tuya
-         </div>
-         <div class="card-body">
-            <form action="?" method="post" enctype="multipart/form-data" name="frmEdit">
-               <div class="row g-3">
-                  <div class="col-md-6">
-                     <label class="form-label[#if ERR_TUYA_USERNAME#] text-danger fw-bold[#endif#]">Электронная почта</label>
-                     <input type="email" name="tuya_username" value="<#TUYA_USERNAME#>" class="form-control" placeholder="user@example.com">
-                  </div>
-                  <div class="col-md-6">
-                     <label class="form-label">Пароль</label>
-                     <input type="password" name="tuya_passwd" value="<#TUYA_PASSWD#>" class="form-control">
-                  </div>
-                  <div class="col-md-3">
-                     <label class="form-label">Код страны</label>
-                     <input type="text" name="tuya_ccode" value="<#TUYA_CCODE#>" class="form-control" placeholder="7">
-                  </div>
-                  <div class="col-md-3">
-                     <label class="form-label">Приложение</label>
-                     <select name="tuya_bztype" class="form-select">
-                        <option value="tuya" [#if TUYA_BZTYPE=='tuya'#]selected[#endif#]>Tuya</option>
-                        <option value="smart_life" [#if TUYA_BZTYPE=='smart_life'#]selected[#endif#]>Smart Life</option>
-                     </select>
-                  </div>
-                  <div class="col-md-6">
-                     <label class="form-label">Локальный IP</label>
-                     <input type="text" name="tuya_local_ip" value="<#TUYA_LOCAL_IP#>" class="form-control" placeholder="определяется автоматически">
-                  </div>
-               </div>
-
-               <hr class="my-3">
-
-               <div class="row g-3">
-                  <div class="col-md-4">
-                     <label class="form-label">Интервал HA (сек)</label>
-                     <input type="number" name="tuya_interval" value="<#TUYA_INTERVAL#>" class="form-control" placeholder="30">
-                  </div>
-                  <div class="col-md-4">
-                     <label class="form-label">Интервал локальный (сек)</label>
-                     <input type="number" name="tuya_local_interval" value="<#TUYA_LOCAL_INTERVAL#>" class="form-control" placeholder="5">
-                  </div>
-                  <div class="col-md-4">
-                     <label class="form-label">Интервал облака (сек)</label>
-                     <input type="number" name="tuya_web_interval" value="<#TUYA_WEB_INTERVAL#>" class="form-control" placeholder="30">
-                  </div>
-               </div>
-
-               <hr class="my-3">
-
-               <div class="d-flex flex-wrap gap-3">
-                  <div class="form-check">
-                     <input type="checkbox" name="tuya_ha" id="tuya_ha" value="1" class="form-check-input" [#if TUYA_HA=='1'#]checked[#endif#]>
-                     <label class="form-check-label" for="tuya_ha">Облако HA</label>
-                  </div>
-                  <div class="form-check">
-                     <input type="checkbox" name="tuya_web" id="tuya_web" value="1" class="form-check-input" [#if TUYA_WEB=='1'#]checked[#endif#]>
-                     <label class="form-check-label" for="tuya_web">Облако Tuya</label>
-                  </div>
-                  <div class="form-check">
-                     <input type="checkbox" name="tuya_iot" id="tuya_iot" value="1" class="form-check-input" [#if TUYA_IOT=='1'#]checked[#endif#]>
-                     <label class="form-check-label" for="tuya_iot">IoT платформа</label>
-                  </div>
-                  <div class="form-check">
-                     <input type="checkbox" name="tuya_cycle_debug" id="tuya_cycle_debug" value="1" class="form-check-input" [#if TUYA_CYCLE_DEBUG=='1'#]checked[#endif#]>
-                     <label class="form-check-label" for="tuya_cycle_debug">Отладка</label>
-                  </div>
-               </div>
-
-               <hr class="my-3">
-
-               <div class="row g-3">
-                  <div class="col-md-6">
-                     <label class="form-label">Client ID (IoT)</label>
-                     <input type="text" name="tuya_client_id" value="<#TUYA_CLIENT_ID#>" class="form-control">
-                  </div>
-                  <div class="col-md-6">
-                     <label class="form-label">Client Secret (IoT)</label>
-                     <input type="password" name="tuya_client_secret" value="<#TUYA_CLIENT_SECRET#>" class="form-control">
-                  </div>
-               </div>
-
-               <div class="mt-3">
-                  <button type="submit" name="subm" value="Submit" class="btn btn-primary"><#LANG_UPDATE#></button>
-               </div>
-
-               <input type="hidden" name="view_mode" value="update_settings">
-               <input type="hidden" name="mode" value="update">
-            </form>
-         </div>
-      </div>
-   </div>
-
-   <!-- вкладки -->
-   <ul class="nav nav-tabs mb-3">
-      <li class="nav-item">
-         <a class="nav-link[#if TAB=""#] active[#endif#]" href="?data_source=<#DATA_SOURCE#>&view_mode=<#search_tudevices#>&tab=">Устройства</a>
-      </li>
-      <li class="nav-item">
-         <a class="nav-link[#if TAB="scene"#] active[#endif#]" href="?data_source=<#DATA_SOURCE#>&view_mode=<#search_tudevices#>&tab=scene">Сцены</a>
-      </li>
-      <li class="nav-item">
-         <a class="nav-link[#if TAB="ir"#] active[#endif#]" href="?data_source=<#DATA_SOURCE#>&view_mode=<#search_tudevices#>&tab=ir">Пульты</a>
-      </li>
-   </ul>
-
-   [#if TAB=""#]
-      [#inc tudevices_search_admin.html#]
-   [#endif#]
-   [#if TAB="scene"#]
-      [#inc tudevices_search_admin_scene.html#]
-   [#endif#]
-   [#if TAB="ir"#]
-      [#inc tudevices_search_admin_ir.html#]
-   [#endif#]
-
-[#endif VIEW_MODE#]
-
-<!-- редактирование -->
-[#if VIEW_MODE="edit_tudevices"#]
-   [#if ID!=""#]
-      [#if TITLE!=""#]<h5 class="mb-3">[#TITLE#]</h5>[#endif#]
-      <ul class="nav nav-tabs mb-3">
-         <li class="nav-item">
-            <a class="nav-link[#if TAB=""#] active[#endif#]" href="?data_source=<#DATA_SOURCE#>&view_mode=<#VIEW_MODE#>&id=<#ID#>&tab="><#LANG_GENERAL#></a>
-         </li>
-         <li class="nav-item">
-            <a class="nav-link[#if TAB="data"#] active[#endif#]" href="?data_source=<#DATA_SOURCE#>&view_mode=<#VIEW_MODE#>&id=<#ID#>&tab=data"><#LANG_DATA#></a>
-         </li>
-      </ul>
-   [#endif#]
-
-   [#if TAB=""#]
-      [#inc tudevices_edit_default.html#]
-   [#endif#]
-   [#if TAB="data"#]
-      [#inc tudevices_edit_data.html#]
-   [#endif#]
-[#endif VIEW_MODE#]
-
-[#if VIEW_MODE="view_tudevices"#]
-   [#inc tudevices_view_default.html#]
-[#endif VIEW_MODE#]
-
-[#endif DATA_SOURCE#]
-
-<!-- команды -->
-[#if DATA_SOURCE="tucommands"#]
-   [#if VIEW_MODE="search_tucommands" || VIEW_MODE=""#]
-      [#inc tucommands_search_admin.html#]
-   [#endif#]
-   [#if VIEW_MODE="edit_tucommands"#]
-      [#inc tucommands_edit.html#]
-   [#endif#]
-   [#if VIEW_MODE="view_tucommands"#]
-      [#inc tucommands_view.html#]
-   [#endif#]
-[#endif DATA_SOURCE#]
-
-<!-- О модуле -->
-<div class="modal fade" id="about" tabindex="-1" aria-labelledby="aboutLabel" aria-hidden="true">
-   <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-         <div class="modal-header border-0">
-            <h5 class="modal-title" id="aboutLabel">
-               <img src="../templates/tuya/img/tuya.png" width="24" height="24" class="me-2" alt="">Модуль Tuya
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-         </div>
-         <div class="modal-body pt-0">
-            <p>Поддержка Wi-Fi, Zigbee и Bluetooth устройств экосистемы Tuya/Smart Life.</p>
-            <div class="d-flex flex-wrap gap-1">
-               <span class="badge bg-light text-dark border">Локальное управление (v3.1–3.5)</span>
-               <span class="badge bg-light text-dark border">Облако Tuya</span>
-               <span class="badge bg-light text-dark border">IoT MQTT</span>
-               <span class="badge bg-light text-dark border">ИК-пульты</span>
-               <span class="badge bg-light text-dark border">Сцены</span>
-               <span class="badge bg-light text-dark border">Синхронизация</span>
+<link rel="stylesheet" href="<#ROOTHTML#>templates/tuya/tuya_admin.css?v=2026-10-21-1">
+<script src="<#ROOTHTML#>templates/tuya/tuya_admin.js?v=2026-10-21-1" defer>
+</script>
+<div class="md-ui-page md-ui-page--stack tuya-page" data-tuya-page data-tuya-api="<#ROOTHTML#>ajax/tuya.html">
+    [#if DATA_SOURCE="tudevices" || DATA_SOURCE=""#]
+    [#if VIEW_MODE="search_tudevices" || VIEW_MODE=""#]
+    <header class="md-ui-hero">
+        <div>
+            <div class="md-ui-hero__eyebrow">
+                <i class="ti ti-smart-home" aria-hidden="true"></i>Умный дом</div>
+            <h1 class="md-ui-hero__title">Tuya / Smart Life</h1>
+            <p class="md-ui-hero__lede">Устройства, автоматизации и пульты в одном месте.</p>
+            <div class="md-ui-hero__meta">
+                <span class="md-ui-hero__meta-item">Облачный цикл: <strong>[#if CYCLERUN==1#]работает[#else#]остановлен[#endif#]</strong>
+                </span>
+                <span class="md-ui-hero__meta-item">Локальный цикл: <strong>[#if LOCAL_CYCLERUN==1#]работает[#else#]остановлен[#endif#]</strong>
+                </span>
+                [#if TUYA_IOT==1#]<span class="md-ui-hero__meta-item">IoT: <strong>[#if IOT_CYCLERUN==1#]работает[#else#]остановлен[#endif#]</strong>
+                </span>[#endif#]
             </div>
-         </div>
-         <div class="modal-footer border-0">
-            <small class="text-muted me-auto">FanDaymon</small>
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Закрыть</button>
-         </div>
-      </div>
-   </div>
+        </div>
+        <div class="md-ui-hero__actions">
+            <a class="md-btn md-btn--primary" href="?data_source=tudevices&view_mode=edit_tudevices">
+                <i class="ti ti-plus" aria-hidden="true"></i>Добавить устройство</a>
+            <button type="button" class="md-btn md-btn--secondary" data-bs-toggle="collapse" data-bs-target="#tuya-settings" aria-controls="tuya-settings" aria-expanded="false">
+                <i class="ti ti-settings" aria-hidden="true"></i>Подключение</button>
+            <button type="button" class="md-icon-btn" data-bs-toggle="modal" data-bs-target="#tuya-about" aria-label="О модуле" title="О модуле">
+                <i class="ti ti-info-circle" aria-hidden="true"></i>
+            </button>
+        </div>
+    </header>
+    <div class="collapse" id="tuya-settings">[#inc tuya_settings.html#]</div>
+    [#if TAB==""#]
+    <div class="md-ui-kpi-grid">
+        <div class="md-kpi md-kpi--primary">
+            <div class="md-kpi__top">
+                <span class="md-kpi__icon">
+                    <i class="ti ti-devices" aria-hidden="true"></i>
+                </span>
+                <span class="md-kpi__label">Устройства</span>
+            </div>
+            <div class="md-kpi__value" data-tuya-kpi="TOTAL_DEVICES">[#TOTAL_DEVICES#]</div>
+            <div class="md-kpi__meta">В основном списке</div>
+        </div>
+        <div class="md-kpi md-kpi--success">
+            <div class="md-kpi__top">
+                <span class="md-kpi__icon">
+                    <i class="ti ti-wifi" aria-hidden="true"></i>
+                </span>
+                <span class="md-kpi__label">В сети</span>
+            </div>
+            <div class="md-kpi__value" data-tuya-kpi="ONLINE_DEVICES">[#ONLINE_DEVICES#]</div>
+            <div class="md-kpi__meta">Доступны по данным последнего опроса</div>
+        </div>
+        <div class="md-kpi md-kpi--warning">
+            <div class="md-kpi__top">
+                <span class="md-kpi__icon">
+                    <i class="ti ti-wifi-off" aria-hidden="true"></i>
+                </span>
+                <span class="md-kpi__label">Не в сети</span>
+            </div>
+            <div class="md-kpi__value" data-tuya-kpi="OFFLINE_DEVICES">[#OFFLINE_DEVICES#]</div>
+            <div class="md-kpi__meta">Проверьте питание и подключение</div>
+        </div>
+    </div>[#endif#]<nav class="md-tabs" aria-label="Разделы Tuya">
+        <a class="nav-link [#if TAB==""#]active[#endif#]" [#if TAB==""#]aria-current="page"[#endif#] href="?data_source=tudevices&tab=">
+            <i class="ti ti-devices" aria-hidden="true"></i>
+            <span>Устройства</span>
+        </a>
+        <a class="nav-link [#if TAB=="scene"#]active[#endif#]" [#if TAB=="scene"#]aria-current="page"[#endif#] href="?data_source=tudevices&tab=scene">
+            <i class="ti ti-bolt" aria-hidden="true"></i>
+            <span>Сцены</span>
+        </a>
+        <a class="nav-link [#if TAB=="ir"#]active[#endif#]" [#if TAB=="ir"#]aria-current="page"[#endif#] href="?data_source=tudevices&tab=ir">
+            <i class="ti ti-device-remote" aria-hidden="true"></i>
+            <span>Пульты</span>
+        </a>
+    </nav>[#if TAB==""#][#inc tudevices_search_admin.html#][#endif#][#if TAB=="scene"#][#inc tudevices_search_admin_scene.html#][#endif#][#if TAB=="ir"#][#inc tudevices_search_admin_ir.html#][#endif#][#endif VIEW_MODE#]
+    [#if VIEW_MODE="edit_tudevices"#]
+    <header class="md-ui-hero">
+        <div>
+            <div class="md-ui-hero__eyebrow">Tuya / Smart Life</div>
+            <h1 class="md-ui-hero__title">[#if ID!=""#][#TITLE#][#else#]Новое устройство[#endif#]</h1>
+            <p class="md-ui-hero__lede">Подключение к устройству и связи с объектами MajorDoMo.</p>
+        </div>
+        <div class="md-ui-hero__actions">
+            <a class="md-btn md-btn--secondary" href="?data_source=tudevices">
+                <i class="ti ti-arrow-left" aria-hidden="true"></i>Все устройства</a>
+        </div>
+    </header>
+    [#if ID!=""#]<nav class="md-tabs" aria-label="Карточка устройства">
+        <a class="nav-link [#if TAB==""#]active[#endif#]" href="?data_source=tudevices&view_mode=edit_tudevices&id=<#ID#>&tab=">
+            <i class="ti ti-settings" aria-hidden="true"></i>Подключение</a>
+        <a class="nav-link [#if TAB=="data"#]active[#endif#]" href="?data_source=tudevices&view_mode=edit_tudevices&id=<#ID#>&tab=data">
+            <i class="ti ti-link" aria-hidden="true"></i>Свойства и связи</a>
+    </nav>[#endif#]
+    [#if TAB==""#][#inc tudevices_edit_default.html#][#endif#]
+    [#if TAB=="data"#][#inc tudevices_edit_data.html#][#endif#]
+    [#endif VIEW_MODE#]
+    [#endif DATA_SOURCE#]
+    [#if DATA_SOURCE="tucommands"#]
+    [#if VIEW_MODE="search_tucommands" || VIEW_MODE=""#][#inc tucommands_search_admin.html#][#endif#]
+    [#if VIEW_MODE="edit_tucommands"#][#inc tucommands_edit.html#][#endif#]
+    [#if VIEW_MODE="view_tucommands"#][#inc tucommands_view.html#][#endif#]
+    [#endif#]
+    <div class="md-alert md-alert--info" role="status" aria-live="polite" data-tuya-feedback hidden>
+        <div class="md-alert__body" data-tuya-feedback-text>
+        </div>
+    </div>
+</div>
+<div class="modal fade md-modal" id="tuya-about" tabindex="-1" aria-labelledby="tuya-about-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="tuya-about-title">Модуль Tuya</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть">
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Wi-Fi, Zigbee и Bluetooth устройства экосистемы Tuya / Smart Life.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="md-badge md-badge--outline">Протоколы 3.1–3.5</span>
+                    <span class="md-badge md-badge--outline">Облако Tuya</span>
+                    <span class="md-badge md-badge--outline">IoT MQTT</span>
+                    <span class="md-badge md-badge--outline">ИК-пульты</span>
+                </div>
+                <p class="mt-3 mb-0">Автор: FanDaymon</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="md-btn md-btn--secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade md-modal" id="tuya-delete" tabindex="-1" aria-labelledby="tuya-delete-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="tuya-delete-title">Удалить запись?</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть">
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Запись и её связи будут удалены из MajorDoMo. Само устройство останется в Tuya.</p>
+            </div>
+            <div class="modal-footer">
+                <a class="md-btn md-btn--danger" data-tuya-delete-confirm href="#">Удалить</a>
+                <button type="button" class="md-btn md-btn--secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade md-modal" id="tuya-scene-info" tabindex="-1" aria-labelledby="tuya-scene-info-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="tuya-scene-info-title">Действия сцены</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть">
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre class="tuya-code" data-tuya-scene-content aria-live="polite">
+                </pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="md-btn md-btn--secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
 </div>

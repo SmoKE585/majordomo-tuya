@@ -1,50 +1,65 @@
-<script>
- function viewSceneInfo(dev_id) {
-  var info = document.getElementById("scene" + dev_id);
-  info.style.display = "block";
-  $.ajax({ url: "/ajax/tuya.html?op=info_scene&dev_id=" + dev_id }).done(function(data) {
-   document.getElementById("sceneInfo" + dev_id).innerHTML = data;
-  });
- }
- function hideSceneInfo(dev_id) {
-  document.getElementById("scene" + dev_id).style.display = "none";
- }
-</script>
-
-<div class="table-responsive mt-2">
-   <table class="table table-striped table-sm align-middle">
-      <thead class="table-light">
-         <tr>
-            <th><#LANG_TITLE#></th>
-            <th>ID</th>
-            <th>Команда для вызова</th>
-            <th class="text-nowrap"></th>
-         </tr>
-      </thead>
-      <tbody>
-      [#begin RESULT#]
-      <tr>
-         <td>[#TITLE#]</td>
-         <td>[#DEV_ID#]</td>
-         <td><code>TuyaScene('[#DEV_ID#]');</code></td>
-         <td>
-            <div class="d-flex gap-1">
-               <button type="button" onClick="$.ajax({url: '/ajax/tuya.html?op=run_scene&dev_id=[#DEV_ID#]'});" class="btn btn-outline-primary btn-sm" title="Запустить сцену"><i class="bi bi-lightning-fill"></i></button>
-               <button type="button" onClick="viewSceneInfo('[#DEV_ID#]');" class="btn btn-outline-secondary btn-sm" title="Показать код сцены"><i class="bi bi-eye"></i></button>
-               <a href="?id=[#ID#]&view_mode=delete_tudevices&tab=scene" onClick="return confirm('<#LANG_ARE_YOU_SURE#>');" class="btn btn-outline-danger btn-sm" title="Удалить"><i class="bi bi-trash"></i></a>
-            </div>
-         </td>
-      </tr>
-      <tr id="scene[#DEV_ID#]" onClick="hideSceneInfo('[#DEV_ID#]');" style="display:none">
-         <td id="sceneInfo[#DEV_ID#]" colspan="4"></td>
-      </tr>
-      [#end RESULT#]
-      </tbody>
-   </table>
-</div>
-
-<input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
-<input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
-<input type="hidden" name="mode" value="update">
-<input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
-<input type="hidden" name="tab" value="<#TAB#>">
+[#if RESULT#]<div class="md-table-wrap" data-md-table data-md-table-page-size="25" data-md-table-unit="сцен" data-md-table-unit-one="сцена" data-md-table-unit-few="сцены" data-md-table-unit-many="сцен">
+    <div class="md-table__toolbar">
+        <div class="md-table__search">
+            <i class="ti ti-search" aria-hidden="true"></i>
+            <input type="search" data-md-table-search placeholder="Название или ID сцены" aria-label="Поиск сцен">
+        </div>
+        <span class="md-table__meta" data-md-table-meta>
+        </span>
+    </div>
+    <div class="md-table__scroll">
+        <table class="md-table">
+            <thead>
+                <tr>
+                    <th scope="col">Сцена</th>
+                    <th scope="col">Вызов из сценария</th>
+                    <th scope="col">
+                        <span class="md-visually-hidden">Действия</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody data-md-table-body>[#begin RESULT#]<tr data-md-row data-row-id="[#ID#]">
+                    <td>
+                        <strong>[#TITLE#]</strong>
+                        <small class="d-block text-muted tuya-id">[#DEV_ID#]</small>
+                    </td>
+                    <td>
+                        <code class="tuya-code">TuyaScene('[#DEV_ID#]');</code>
+                    </td>
+                    <td>
+                        <div class="md-table__actions">
+                            <button type="button" class="md-btn md-btn--secondary md-btn--sm" data-tuya-action="run_scene" data-dev-id="[#DEV_ID#]">
+                                <i class="ti ti-player-play" aria-hidden="true"></i>Запустить</button>
+                            <button type="button" class="md-icon-btn md-icon-btn--sm" data-tuya-action="info_scene" data-dev-id="[#DEV_ID#]" aria-label="Действия сцены" title="Действия сцены">
+                                <i class="ti ti-code" aria-hidden="true"></i>
+                            </button>
+                            <a class="md-icon-btn md-icon-btn--sm md-icon-btn--danger" href="?data_source=tudevices&id=[#ID#]&view_mode=delete_tudevices&tab=scene" data-tuya-delete title="Удалить сцену" aria-label="Удалить сцену">
+                                <i class="ti ti-trash" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>[#end RESULT#]</tbody>
+        </table>
+    </div>
+    <div class="md-table__empty" data-md-table-empty>
+        <div class="md-empty">
+            <span class="md-empty__icon">
+                <i class="ti ti-search" aria-hidden="true"></i>
+            </span>
+            <div class="md-empty__title">Сцена не найдена</div>
+            <p class="md-empty__text">Измените поисковый запрос.</p>
+        </div>
+    </div>
+    <div class="md-table__footer">
+        <span data-md-table-count>
+        </span>
+        <ul class="pagination md-pagination mb-0" data-md-table-pagination>
+        </ul>
+    </div>
+</div>[#else#]<div class="md-empty">
+    <span class="md-empty__icon">
+        <i class="ti ti-bolt" aria-hidden="true"></i>
+    </span>
+    <div class="md-empty__title">Сцен пока нет</div>
+    <p class="md-empty__text">Настройте облачное подключение и создайте сцену в Tuya / Smart Life.</p>
+</div>[#endif#]

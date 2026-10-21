@@ -1,54 +1,28 @@
-<style>
- .ir_device {
-    background-color: tomato;
-    color: white;
-    border: 2px solid black;
-    margin: 20px;
-    padding: 20px;
- }
- .ir_command {
-    margin: 10px;
-    vertical-align: center;
-    background-color: aliceblue;
-    padding: 2px;
-    display: inline-flex;
- }
- .ir_command_text {
-    vertical-align: middle;
-    padding: 10px;
- }
- .ir_command_button {
-    padding: 5px;
- }
- .ir_button {
-    margin-bottom: 2px;
- }
-</style>
-
-[#begin RESULT#]
-<div class="row mb-3">
-   <div class="col-md-2 ir_device">[#TITLE#]</div>
-</div>
-<div class="row ir_command mb-2">
-   <div class="ir_command_text">Команда: <code>TuyaIR('[#DEV_ID#]', 'Название клавиши');</code></div>
-   <div class="ir_command_button">
-      <a href="?id=[#ID#]&view_mode=delete_tudevices&tab=ir" onClick="return confirm('<#LANG_ARE_YOU_SURE#>');" class="btn btn-outline-danger btn-sm" title="Удалить"><i class="bi bi-trash"></i></a>
-   </div>
-   <div class="ir_command_button">
-      <a href="?id=[#ID#]&view_mode=refresh_tudevices&tab=ir" class="btn btn-outline-secondary btn-sm" title="Перечитать коды"><i class="bi bi-arrow-repeat"></i></a>
-   </div>
-</div>
-<div class="row">
-   <div class="col-12">
-      [#begin CODES#]
-      <button type="button" onClick="$.ajax({url: '/ajax/tuya.html?op=run_ir&dev_id=[#DEV_ID#]&id=[#ID#]'});" class="btn btn-outline-primary btn-sm ir_button" title="[#TITLE#]">[#TITLE#]</button>
-      [#end CODES#]
-   </div>
-</div>
-[#end RESULT#]
-
-<input type="hidden" name="view_mode" value="<#VIEW_MODE#>">
-<input type="hidden" name="edit_mode" value="<#EDIT_MODE#>">
-<input type="hidden" name="mode" value="update">
-<input type="hidden" name="data_source" value="<#DATA_SOURCE#>">
-<input type="hidden" name="tab" value="<#TAB#>">
+[#if RESULT#]<div class="tuya-form">[#begin RESULT#]<section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">[#TITLE#]</h2>
+                <p class="md-card__subtitle tuya-id">[#DEV_ID#]</p>
+            </div>
+            <div class="md-card__actions">
+                <a class="md-icon-btn" href="?data_source=tudevices&id=[#ID#]&view_mode=refresh_tudevices&tab=ir" title="Перечитать коды" aria-label="Перечитать коды">
+                    <i class="ti ti-refresh" aria-hidden="true"></i>
+                </a>
+                <a class="md-icon-btn md-icon-btn--danger" href="?data_source=tudevices&id=[#ID#]&view_mode=delete_tudevices&tab=ir" data-tuya-delete title="Удалить пульт" aria-label="Удалить пульт">
+                    <i class="ti ti-trash" aria-hidden="true"></i>
+                </a>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <p class="md-field__hint">Нажмите клавишу для отправки команды устройству.</p>
+            [#if CODES#]<div class="tuya-remote-keys">[#begin CODES#]<button type="button" class="md-btn md-btn--secondary" data-tuya-action="run_ir" data-dev-id="[#DEV_ID#]" data-id="[#ID#]">[#TITLE#]</button>[#end CODES#]</div>[#else#]<p class="md-field__hint">Клавиши не загружены. Нажмите «Перечитать коды» в меню пульта.</p>[#endif#]
+            <p class="md-field__hint mt-3 mb-0">Вызов из сценария: <code class="tuya-code">TuyaIR('[#DEV_ID#]', 'Название клавиши');</code>
+            </p>
+        </div>
+    </section>[#end RESULT#]</div>[#else#]<div class="md-empty">
+    <span class="md-empty__icon">
+        <i class="ti ti-device-remote" aria-hidden="true"></i>
+    </span>
+    <div class="md-empty__title">Пультов пока нет</div>
+    <p class="md-empty__text">Подключите аккаунт Tuya, в котором добавлен ИК-пульт.</p>
+</div>[#endif#]

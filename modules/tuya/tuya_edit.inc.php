@@ -106,48 +106,47 @@
             $old_linked_object=$properties[$i]['LINKED_OBJECT'];
             $old_linked_property=$properties[$i]['LINKED_PROPERTY'];
             global ${'linked_object'.$properties[$i]['ID']};
-            $properties[$i]['LINKED_OBJECT']=trim(${'linked_object'.$properties[$i]['ID']});
+            $properties[$i]['LINKED_OBJECT']=trim((string)(${'linked_object'.$properties[$i]['ID']} ?? ''));
             global ${'linked_property'.$properties[$i]['ID']};
-            $properties[$i]['LINKED_PROPERTY']=trim(${'linked_property'.$properties[$i]['ID']});
+            $properties[$i]['LINKED_PROPERTY']=trim((string)(${'linked_property'.$properties[$i]['ID']} ?? ''));
             global ${'linked_method'.$properties[$i]['ID']};
-            $properties[$i]['LINKED_METHOD']=trim(${'linked_method'.$properties[$i]['ID']});
+            $properties[$i]['LINKED_METHOD']=trim((string)(${'linked_method'.$properties[$i]['ID']} ?? ''));
             global ${'alias'.$properties[$i]['ID']};
-            $properties[$i]['ALIAS']=trim(${'alias'.$properties[$i]['ID']});
+            $properties[$i]['ALIAS']=trim((string)(${'alias'.$properties[$i]['ID']} ?? ''));
             global ${'color_convert'.$properties[$i]['ID']};
-            $properties[$i]['COLOR_CONVERT']=${'color_convert'.$properties[$i]['ID']}; 
+            $properties[$i]['COLOR_CONVERT']=(int)(${'color_convert'.$properties[$i]['ID']} ?? 0);
             global ${'color_v2'.$properties[$i]['ID']};
-            $properties[$i]['COLOR_V2']=${'color_v2'.$properties[$i]['ID']}; 
+            $properties[$i]['COLOR_V2']=(int)(${'color_v2'.$properties[$i]['ID']} ?? 0);
 
             global ${'dividedby10'.$properties[$i]['ID']};
-            $properties[$i]['DIVIDEDBY10']=${'dividedby10'.$properties[$i]['ID']}; 
+            $properties[$i]['DIVIDEDBY10']=(int)(${'dividedby10'.$properties[$i]['ID']} ?? 0);
             global ${'dividedby2'.$properties[$i]['ID']};
-            $properties[$i]['DIVIDEDBY2']=${'dividedby2'.$properties[$i]['ID']};
+            $properties[$i]['DIVIDEDBY2']=(int)(${'dividedby2'.$properties[$i]['ID']} ?? 0);
             global ${'dividedby100'.$properties[$i]['ID']};
-            $properties[$i]['DIVIDEDBY100']=${'dividedby100'.$properties[$i]['ID']};
+            $properties[$i]['DIVIDEDBY100']=(int)(${'dividedby100'.$properties[$i]['ID']} ?? 0);
             global ${'value_scale'.$properties[$i]['ID']};
-            $properties[$i]['VALUE_SCALE']=${'value_scale'.$properties[$i]['ID']};
+            $properties[$i]['VALUE_SCALE']=(string)(${'value_scale'.$properties[$i]['ID']} ?? '');
             global ${'replace_list'.$properties[$i]['ID']};
-            $properties[$i]['REPLACE_LIST']=${'replace_list'.$properties[$i]['ID']};
+            $properties[$i]['REPLACE_LIST']=(string)(${'replace_list'.$properties[$i]['ID']} ?? '');
             global ${'power_meter'.$properties[$i]['ID']};
-            $properties[$i]['POWER_METER']=${'power_meter'.$properties[$i]['ID']};
+            $properties[$i]['POWER_METER']=(int)(${'power_meter'.$properties[$i]['ID']} ?? 0);
             global ${'decode'.$properties[$i]['ID']};
-            $properties[$i]['DECODE']=${'decode'.$properties[$i]['ID']};
+            $properties[$i]['DECODE']=(int)(${'decode'.$properties[$i]['ID']} ?? 0);
             global ${'split'.$properties[$i]['ID']};
-            $properties[$i]['SPLIT']=${'split'.$properties[$i]['ID']};  
+            $properties[$i]['SPLIT']=(int)(${'split'.$properties[$i]['ID']} ?? 0);
                                              
             
             if (strlen($properties[$i]['VALUE_SCALE']) == 0) $properties[$i]['VALUE_SCALE'] = 0;
-            if (strlen($properties[$i]['DIVIDEDBY10']) == 0) $properties[$i]['DIVIDEDBY10'] = 0;
-            if (strlen($properties[$i]['DIVIDEDBY2']) == 0) $properties[$i]['DIVIDEDBY2'] = 0;
-            if (strlen($properties[$i]['POWER_METER']) == 0) $properties[$i]['POWER_METER'] = 0;
-            if (strlen($properties[$i]['DECODE']) == 0) $properties[$i]['DECODE'] = 0;
-            if (strlen($properties[$i]['SPLIT']) == 0) $properties[$i]['SPLIT'] = 0;
        
             
-       unset($properties[$i]['VALUE']);
-       unset($properties[$i]['UPDATED']);
+            // These joined values are display-only; keep them after saving the binding.
+            $displayValue = $properties[$i]['VALUE'];
+            $displayUpdated = $properties[$i]['UPDATED'];
+            unset($properties[$i]['VALUE'], $properties[$i]['UPDATED']);
 
             SQLUpdate('tucommands', $properties[$i]);
+            $properties[$i]['VALUE'] = $displayValue;
+            $properties[$i]['UPDATED'] = $displayUpdated;
             if ($old_linked_object && $old_linked_object!=$properties[$i]['LINKED_OBJECT'] && $old_linked_property && $old_linked_property!=$properties[$i]['LINKED_PROPERTY']) {
              removeLinkedProperty($old_linked_object, $old_linked_property, $this->name);
             }
@@ -159,13 +158,21 @@
       }
 
 
+      foreach ($properties as &$property) {
+         foreach ($property as $key => $value) {
+            if (!is_array($value)) {
+               $property[$key] = htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            }
+         }
+      }
+      unset($property);
       $out['PROPERTIES'] = $properties;
    }
 
    if (is_array($rec)) {
       foreach($rec as $k => $v) {
          if (!is_array($v)) {
-            $rec[$k] = htmlspecialchars($v);
+            $rec[$k] = htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
          }
       }
    }

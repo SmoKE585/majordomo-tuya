@@ -1,0 +1,139 @@
+<form action="?" method="post" class="tuya-form" data-tuya-settings>
+    <section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Аккаунт Tuya</h2>
+                <p class="md-card__subtitle">Выберите приложение, в котором зарегистрированы ваши устройства.</p>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <div class="tuya-form-grid">
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_username">Электронная почта</label>
+                    <input class="md-input" type="email" id="tuya_username" name="tuya_username" value="<#TUYA_USERNAME#>" autocomplete="username">
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_passwd">Пароль</label>
+                    <div class="md-input-shell">
+                        <input class="md-input" type="password" id="tuya_passwd" name="tuya_passwd" value="<#TUYA_PASSWD#>" autocomplete="current-password">
+                        <button type="button" class="md-input-action" data-md-password-toggle="tuya_passwd" aria-label="Показать пароль" aria-pressed="false">
+                            <i class="ti ti-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_ccode">Код страны</label>
+                    <input class="md-input" type="text" id="tuya_ccode" name="tuya_ccode" value="<#TUYA_CCODE#>" >
+                    <div class="md-field__hint">Например, 7 для России.</div>
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_bztype">Приложение</label>
+                    <select class="md-select" id="tuya_bztype" name="tuya_bztype">
+                        <option value="tuya" [#if TUYA_BZTYPE=="tuya"#]selected[#endif#]>Tuya</option>
+                        <option value="smart_life" [#if TUYA_BZTYPE=="smart_life"#]selected[#endif#]>Smart Life</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Способы подключения</h2>
+                <p class="md-card__subtitle">Включайте только используемые способы. Сохранение перезапустит циклы модуля.</p>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <div class="tuya-checks">
+                <label class="md-check">
+                    <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="tuya_web" value="1" [#if TUYA_WEB=="1"#]checked[#endif#]>
+                    <span class="md-check__box" aria-hidden="true">
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="md-check__text">
+                        <span class="md-check__label">Облако Tuya</span>
+                    </span>
+                </label>
+                <label class="md-check">
+                    <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="tuya_ha" value="1" [#if TUYA_HA=="1"#]checked[#endif#]>
+                    <span class="md-check__box" aria-hidden="true">
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="md-check__text">
+                        <span class="md-check__label">Облако HA (устаревший способ)</span>
+                    </span>
+                </label>
+                <label class="md-check">
+                    <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="tuya_iot" value="1" [#if TUYA_IOT=="1"#]checked[#endif#]>
+                    <span class="md-check__box" aria-hidden="true">
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="md-check__text">
+                        <span class="md-check__label">Платформа IoT</span>
+                    </span>
+                </label>
+                <label class="md-check">
+                    <input class="md-check__input" data-md-raw-checkbox type="checkbox" name="tuya_cycle_debug" value="1" [#if TUYA_CYCLE_DEBUG=="1"#]checked[#endif#]>
+                    <span class="md-check__box" aria-hidden="true">
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                    </span>
+                    <span class="md-check__text">
+                        <span class="md-check__label">Отладка циклов</span>
+                    </span>
+                </label>
+            </div>
+            <div class="tuya-form-grid mt-3">
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_local_ip">Локальный IP</label>
+                    <input class="md-input" type="text" id="tuya_local_ip" name="tuya_local_ip" value="<#TUYA_LOCAL_IP#>" >
+                    <div class="md-field__hint">Оставьте пустым для автоматического определения.</div>
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_local_interval">Локальный опрос, сек.</label>
+                    <input class="md-input" type="number" id="tuya_local_interval" name="tuya_local_interval" value="<#TUYA_LOCAL_INTERVAL#>" min="1">
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_web_interval">Опрос облака Tuya, сек.</label>
+                    <input class="md-input" type="number" id="tuya_web_interval" name="tuya_web_interval" value="<#TUYA_WEB_INTERVAL#>" min="1">
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_interval">Опрос облака HA, сек.</label>
+                    <input class="md-input" type="number" id="tuya_interval" name="tuya_interval" value="<#TUYA_INTERVAL#>" min="1">
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="md-card">
+        <header class="md-card__head">
+            <div class="md-card__titles">
+                <h2 class="md-card__title">Платформа IoT</h2>
+                <p class="md-card__subtitle">Нужны только для подключения через платформу IoT.</p>
+            </div>
+        </header>
+        <div class="md-card__body">
+            <div class="tuya-form-grid">
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_client_id">Client ID</label>
+                    <input class="md-input" type="text" id="tuya_client_id" name="tuya_client_id" value="<#TUYA_CLIENT_ID#>" >
+                </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_client_secret">Client Secret</label>
+                    <div class="md-input-shell">
+                        <input class="md-input" type="password" id="tuya_client_secret" name="tuya_client_secret" value="<#TUYA_CLIENT_SECRET#>" autocomplete="off">
+                        <button type="button" class="md-input-action" data-md-password-toggle="tuya_client_secret" aria-label="Показать пароль" aria-pressed="false">
+                            <i class="ti ti-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <input type="hidden" name="tuya_sid" value="<#TUYA_SID#>">
+    <input type="hidden" name="tuya_web_endpoint" value="<#TUYA_WEB_ENDPOINT#>">
+    <input type="hidden" name="view_mode" value="update_settings">
+    <input type="hidden" name="mode" value="update">
+    <div class="tuya-form-actions">
+        <button class="md-btn md-btn--primary" type="submit" name="subm" value="Submit">
+            <i class="ti ti-check" aria-hidden="true"></i>Сохранить подключение</button>
+    </div>
+</form>
