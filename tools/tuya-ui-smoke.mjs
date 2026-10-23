@@ -160,6 +160,8 @@ try {
     await check(`document.getElementById('tuya-options-101').querySelectorAll('[data-bs-toggle="tooltip"]').length === 8`, 'advanced flags have explanatory tooltips');
     await shot('properties-dark-mobile');
     await open('properties', 1440, false);
+    // Связки должны занимать всю ширину колонки, а не фиксированные 160 px.
+    await check(`Array.from(document.querySelectorAll('.tuya-properties-table td')).filter(td => td.querySelector('.md-linkedobject')).every(td => td.querySelector('.md-linkedobject').getBoundingClientRect().width >= td.clientWidth * 0.85)`, 'binding controls fill their table cells');
     await shot('properties-light-desktop');
     await evaluate(`document.querySelector('[aria-controls="tuya-options-101"]').click()`);
     await sleep(100);

@@ -55,7 +55,7 @@ class linkedobject {
     public function run() {
         global $core;
         $data = [
-            'UNIQ' => $this->object_field, 'WIDTH' => '200px', 'BASE_URL' => '/panel/linkedobject.html',
+            'UNIQ' => $this->object_field, 'WIDTH' => $this->width ?: '200px', 'BASE_URL' => '/panel/linkedobject.html',
             'OBJECT_FIELD' => $this->object_field, 'PROPERTY_FIELD' => $this->property_field,
             'METHOD_FIELD' => $this->method_field, 'OBJECT_LABEL' => 'Объект',
             'PROPERTY_LABEL' => 'Свойство', 'METHOD_LABEL' => 'Метод',
