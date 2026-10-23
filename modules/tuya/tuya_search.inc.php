@@ -1,22 +1,14 @@
 <?php
 
-global $session;
-
-if ($this->owner->name == 'panel') {
+if (isset($this->owner) && $this->owner->name == 'panel') {
    $out['CONTROLPANEL'] = 1;
 }
 
+// Поиск и сортировка выполняются в браузере общим md-table; сервер отдаёт
+// полный список устройств, кроме служебных записей (сцены, ИК-пульты, каналы).
+// Раньше здесь читался $session->data — в новом ядре у сессии нет такого
+// свойства, и любой переход на список писал предупреждение в журнал.
 $qry = '1';
-
-global $save_qry;
-
-if ($save_qry) {
-   $qry = $session->data['tudevices_qry'];
-} else {
-   $session->data['tudevices_qry'] = $qry;
-}
-
-if (!$qry) $qry = '';
 
 // Сортировка: по умолчанию по названию A-Z, можно переопределить через $_GET['sortby'] и $_GET['sortdir']
 global $sortby;
@@ -43,7 +35,7 @@ if ($qry != '') {
 }
 $qry .= "INSTR(DEV_ID,'_')=0 AND TYPE !='scene' AND IR_FLAG=0 ";
 
-$res = SQLSelect("SELECT * FROM tudevices WHERE $qry ORDER BY $sortby_sql");
+$res = (array)SQLSelect("SELECT * FROM tudevices WHERE $qry ORDER BY $sortby_sql");
 $last_i = 0;
 
 if (!empty($res[0]['ID'])) {
@@ -51,7 +43,7 @@ if (!empty($res[0]['ID'])) {
    $total = count($res);
    for ($i = 0; $i < $total; $i++) {
 
-      $commands = SQLSelect("SELECT tucommands.*, tuvalues.VALUE, tuvalues.UPDATED FROM tucommands LEFT JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID=" . $res[$i]['ID'] . " and TITLE!='state' AND TITLE!='report' ORDER BY TITLE");
+      $commands = SQLSelect("SELECT tucommands.*, tuvalues.VALUE, tuvalues.UPDATED FROM tucommands LEFT JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID=" . (int)$res[$i]['ID'] . " and TITLE!='state' AND TITLE!='report' ORDER BY TITLE");
 
       if (!empty($commands[0]['ID'])) {
          $totalc = count($commands);

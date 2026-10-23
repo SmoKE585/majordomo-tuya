@@ -28,7 +28,7 @@ const server = createServer((req, res) => {
         return;
     }
     let base, relative;
-    if (url.pathname.startsWith('/assets/admin/')) { base = path.join(core, 'assets/admin'); relative = url.pathname.slice('/assets/admin/'.length); }
+    if (url.pathname.startsWith('/assets/admin/')) { base = path.join(core, 'public/assets/admin'); relative = url.pathname.slice('/assets/admin/'.length); }
     else if (url.pathname.startsWith('/templates/tuya/')) { base = path.join(moduleRoot, 'templates/tuya'); relative = url.pathname.slice('/templates/tuya/'.length); }
     else if (url.pathname === '/favicon.ico') { res.writeHead(204).end(); return; }
     else { res.writeHead(404).end(); return; }

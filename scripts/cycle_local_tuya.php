@@ -1,6 +1,10 @@
 <?php
 /**
- * Цикл локального опроса Tuya (прямое подключение к устройствам)
+ * Цикл локального опроса Tuya (прямое подключение к устройствам).
+ *
+ * 2026-10-23 — цикл сам отключается, когда ни одно устройство не получает
+ * статус локально, и отмечает heartbeat перед каждым устройством: один
+ * медленный сокет больше не выглядит как зависание всего цикла.
  */
 
 chdir(dirname(__FILE__) . '/../');
@@ -18,10 +22,25 @@ $ctl = new control_modules();
 
 include_once(DIR_MODULES . 'tuya/tuya.class.php');
 
+$cycle_name = str_replace('.php', '', basename(__FILE__));
+
 $tuya_module = new tuya();
 $tuya_module->getConfig();
+$tuya_module->cycleName = $cycle_name;
+
+$heartbeat = static function () use ($cycle_name) {
+    setGlobal($cycle_name . 'Run', time(), 1);
+};
+
+$heartbeat();
 
 echo date('H:i:s') . ' Запуск ' . basename(__FILE__) . PHP_EOL;
+
+if (!$tuya_module->cycleIsNeeded($cycle_name)) {
+    echo date('H:i:s') . ' Цикл отключён: нет устройств с локальным статусом.' . PHP_EOL;
+    $tuya_module->disablePluginCycle($cycle_name, 'ни одно устройство не получает статус локально');
+    exit(0);
+}
 
 $latest_check = 0;
 $latest_disc = 0;
@@ -30,7 +49,7 @@ $cycle_debug = false;
 $tuya_local_interval = 5;
 
 if (!empty($tuya_module->config['TUYA_LOCAL_INTERVAL'])) {
-    $tuya_local_interval = (int)$tuya_module->config['TUYA_LOCAL_INTERVAL'];
+    $tuya_local_interval = max(1, (int)$tuya_module->config['TUYA_LOCAL_INTERVAL']);
 }
 
 if (!empty($tuya_module->config['TUYA_CYCLE_DEBUG'])) {
@@ -44,12 +63,27 @@ echo date('H:i:s') . " Период опроса — {$tuya_local_interval} се
 
 $save_dsp = array();
 $dps_null = array();
+$latest_needs_check = 0;
 
 while (1) {
+    $heartbeat();
+
+    // Настройки могли измениться без перезапуска: если локальный статус
+    // больше не нужен ни одному устройству, цикл отключается сам.
+    if ((time() - $latest_needs_check) >= 60) {
+        $latest_needs_check = time();
+        $tuya_module->getConfig();
+        if (!$tuya_module->cycleIsNeeded($cycle_name)) {
+            echo date('H:i:s') . ' Цикл отключён: нет устройств с локальным статусом.' . PHP_EOL;
+            $tuya_module->disablePluginCycle($cycle_name, 'ни одно устройство больше не получает статус локально');
+            exit(0);
+        }
+    }
+
     if ((time() - $latest_disc) >= 5 * 60) {
         $latest_disc = time();
-        $devices = SQLSelect("SELECT ID, TITLE, LOCAL_KEY, DEV_ID, DEV_IP, UUID, '' as MAC, 0 as 'ZIGBEE', SEND12, FLAGS12, TUYA_VER FROM tudevices WHERE LOCAL_KEY!='' and DEV_IP!='' and STATUS=1 ORDER BY DEV_ID");
-        $gw_devices = SQLSelect("SELECT d.ID, d.TITLE, gw.LOCAL_KEY, d.DEV_ID, gw.DEV_IP, d.UUID, d.MAC, 1 as 'ZIGBEE', d.SEND12, d.FLAGS12, gw.TUYA_VER FROM tudevices d INNER JOIN tudevices gw ON d.MESH_ID = gw.DEV_ID WHERE gw.LOCAL_KEY!='' and gw.DEV_IP!='' and d.STATUS=1");
+        $devices = (array)SQLSelect("SELECT ID, TITLE, LOCAL_KEY, DEV_ID, DEV_IP, UUID, '' as MAC, 0 as 'ZIGBEE', SEND12, FLAGS12, TUYA_VER FROM tudevices WHERE LOCAL_KEY!='' and DEV_IP!='' and STATUS=1 ORDER BY DEV_ID");
+        $gw_devices = (array)SQLSelect("SELECT d.ID, d.TITLE, gw.LOCAL_KEY, d.DEV_ID, gw.DEV_IP, d.UUID, d.MAC, 1 as 'ZIGBEE', d.SEND12, d.FLAGS12, gw.TUYA_VER FROM tudevices d INNER JOIN tudevices gw ON d.MESH_ID = gw.DEV_ID WHERE gw.LOCAL_KEY!='' and gw.DEV_IP!='' and d.STATUS=1");
         $devices = array_merge($devices, $gw_devices);
 
         if ($cycle_debug) {
@@ -61,12 +95,15 @@ while (1) {
 
     if ((time() - $latest_check) >= $tuya_local_interval) {
         $latest_check = time();
-        setGlobal((str_replace('.php', '', basename(__FILE__))) . 'Run', time(), 1);
+        $heartbeat();
         if ($cycle_debug) {
             echo 'Запуск проверки статуса ' . date('H:i:s') . PHP_EOL;
         }
 
-        foreach ($devices as $device) {
+        try {
+        foreach ((array)$devices as $device) {
+            // Один сокет может ждать до нескольких секунд — отмечаемся до него.
+            $heartbeat();
             if ($cycle_debug) {
                 debmes(date('H:i:s') . ' Tuya: получение локального статуса ' . $device['TITLE']);
                 echo 'Проверка статуса: ' . $device['TITLE'] . ' ' . date('H:i:s') . PHP_EOL;
@@ -218,9 +255,9 @@ while (1) {
                         $status = json_decode($result);
 
                         if ($cycle_debug) {
-                            debmes('Result:' . bin2hex($buf));
-                            debmes('Local key:' . $local_key);
-                            debmes(date('H:i:s') . ' Tuya: альт. статус=' . $result);
+                            // Локальный ключ — секрет: в журнал попадает только
+                            // длина ответа, без ключа и сырого пакета.
+                            debmes('Tuya: ответ ' . strlen((string)$buf) . ' байт, альт. статус=' . $result, 'tuya');
                         }
                     }
 
@@ -260,12 +297,17 @@ while (1) {
 
             }
         }
+        } catch (Throwable $e) {
+            // Ошибка одного устройства не должна останавливать весь цикл.
+            DebMes('Tuya local: ' . $e->getMessage(), 'cycle_local_tuya', 'error');
+            echo date('H:i:s') . ' Ошибка локального опроса: ' . $e->getMessage() . PHP_EOL;
+        }
 
     }
 
     if (file_exists('./reboot') || isset($_GET['onetime'])) {
         echo date('H:i:s') . ' Остановка по команде REBOOT или ONETIME: ' . basename(__FILE__) . PHP_EOL;
-        exit;
+        exit(0);
     }
 
 
@@ -274,4 +316,4 @@ while (1) {
 
 echo date('H:i:s') . ' Неожиданное завершение цикла' . PHP_EOL;
 
-DebMes('Неожиданное завершение цикла: ' . basename(__FILE__));
+DebMes('Неожиданное завершение цикла: ' . basename(__FILE__), 'cycle_local_tuya', 'error');

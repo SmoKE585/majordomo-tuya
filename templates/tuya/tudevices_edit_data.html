@@ -22,7 +22,7 @@
                         <td><input class="md-input md-input--sm" type="text" id="linked_method[#ID#]" name="linked_method[#ID#]" value="[#LINKED_METHOD#]" aria-label="Метод для DP [#TITLE#]">[#module name="linkedobject" object_field="linked_object<#PROPERTIES.ID#>" property_field="linked_property<#PROPERTIES.ID#>" method_field="linked_method<#PROPERTIES.ID#>" width="160"#]</td>
                         <td><div class="md-table__actions">
                             <button type="button" class="md-icon-btn md-icon-btn--sm" @click="open = !open" :aria-expanded="open" aria-controls="tuya-options-[#ID#]" aria-label="Преобразования DP [#TITLE#]" title="Преобразования и параметры"><i class="ti ti-adjustments" aria-hidden="true"></i></button>
-                            <a class="md-icon-btn md-icon-btn--sm md-icon-btn--danger" href="?data_source=tudevices&id=<#ID#>&tab=data&view_mode=edit_tudevices&delete_id=[#ID#]" data-tuya-delete aria-label="Удалить свойство" title="Удалить свойство"><i class="ti ti-trash" aria-hidden="true"></i></a>
+                            <a class="md-icon-btn md-icon-btn--sm md-icon-btn--danger" href="?data_source=tudevices&id=<#ID#>&tab=data&view_mode=edit_tudevices&delete_id=[#ID#]&csrf_token=<#CSRF_TOKEN#>" data-tuya-delete aria-label="Удалить свойство" title="Удалить свойство"><i class="ti ti-trash" aria-hidden="true"></i></a>
                         </div></td>
                     </tr>
                     <tr x-show="open" x-cloak id="tuya-options-[#ID#]" class="tuya-options-row">
@@ -125,5 +125,5 @@
         <div data-tuya-properties-empty hidden><div class="md-empty"><span class="md-empty__icon"><i class="ti ti-search" aria-hidden="true"></i></span><div class="md-empty__title">Ничего не найдено</div><p class="md-empty__text">Измените запрос или фильтр связей.</p></div></div>
     </div>
     <div class="tuya-form-actions"><button type="submit" name="subm" value="Submit" class="md-btn md-btn--primary"><i class="ti ti-check" aria-hidden="true"></i>Сохранить связи и параметры</button><a href="?data_source=tudevices" class="md-btn md-btn--secondary">Отмена</a></div>
-    <input type="hidden" name="id" value="<#ID#>"><input type="hidden" name="view_mode" value="<#VIEW_MODE#>"><input type="hidden" name="edit_mode" value="<#EDIT_MODE#>"><input type="hidden" name="data_source" value="<#DATA_SOURCE#>"><input type="hidden" name="tab" value="<#TAB#>"><input type="hidden" name="mode" value="update">
+    <input type="hidden" name="id" value="<#ID#>"><input type="hidden" name="csrf_token" value="<#CSRF_TOKEN#>"><input type="hidden" name="view_mode" value="<#VIEW_MODE#>"><input type="hidden" name="edit_mode" value="<#EDIT_MODE#>"><input type="hidden" name="data_source" value="<#DATA_SOURCE#>"><input type="hidden" name="tab" value="<#TAB#>"><input type="hidden" name="mode" value="update">
 </form>

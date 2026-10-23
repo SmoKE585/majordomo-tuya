@@ -16,6 +16,7 @@ function startMeasure($name) {}
 function endMeasure($name) {}
 function setEvalCode($code = '') {}
 function DBSafe($value) { return addslashes($value); }
+function gr($name, $type = 'trim') { return $type === 'int' ? 0 : ''; }
 function outHash($record, &$out) { $out = array_merge($out, $record); }
 function addLinkedProperty(...$args) { throw new RuntimeException('No real subscriptions in UI fixtures.'); }
 function removeLinkedProperty(...$args) { throw new RuntimeException('No real subscriptions in UI fixtures.'); }
@@ -64,6 +65,9 @@ class linkedobject {
         $this->result = (new jTemplate($core . '/templates/linkedobject/linkedobject.html', $data, $owner))->result;
     }
 }
+// Autoload ядра в изолированной проверке не поднимается: условия шаблона
+// без явного подключения Condition молча считались ложными.
+require $core . '/lib/core/Template/Condition.php';
 require $core . '/lib/jTemplate.class.php';
 // Load declarations only: constructors and application bootstrap never run.
 class module {}
@@ -97,11 +101,9 @@ $module = new class {
     public function edit(&$out) { $id = 1; require __DIR__ . '/../modules/tuya/tuya_edit.inc.php'; }
 };
 $module->owner = (object)['name' => 'panel'];
-$session = (object)['data' => []];
-$save_qry = false;
 $tab = '';
-$data = ['ACTION' => 'admin', 'DATA_SOURCE' => 'tudevices', 'VIEW_MODE' => '', 'TAB' => '',
-    'CYCLERUN' => 1, 'LOCAL_CYCLERUN' => 1, 'TUYA_IOT' => 1, 'IOT_CYCLERUN' => 0,
+$data = ['ACTION' => 'admin', 'DATA_SOURCE' => 'tudevices', 'VIEW_MODE' => '', 'TAB' => '', 'CSRF_TOKEN' => 'fixture-csrf',
+    'CYCLERUN' => 'работает', 'LOCAL_CYCLERUN' => 'работает', 'TUYA_IOT' => 1, 'IOT_CYCLERUN' => 'отключён',
     'TUYA_USERNAME' => 'fixture@example.test', 'TUYA_PASSWD' => 'fixture-only', 'TUYA_CLIENT_SECRET' => 'fixture-secret',
     'TUYA_CCODE' => 7, 'TUYA_BZTYPE' => 'smart_life', 'TUYA_LOCAL_INTERVAL' => 5,
     'TUYA_WEB_INTERVAL' => 30, 'TUYA_INTERVAL' => 30, 'TUYA_WEB' => 1,

@@ -1,8 +1,2 @@
-[#if ACTION=""#]
-   <!-- Пользовательский интерфейс -->
-   [#inc action_usual.html#]
-[#endif#]
-[#if ACTION="admin"#]
-   <!-- Панель управления -->
-   [#inc action_admin.html#]
-[#endif#]
+<!-- Панель управления и AJAX-режим используют один интерфейс модуля -->
+[#inc action_admin.html#]

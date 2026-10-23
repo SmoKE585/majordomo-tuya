@@ -1,19 +1,38 @@
 <?php
 /**
- * Tuya
+ * Tuya — устройства Tuya и Smart Life.
+ *
+ * Модуль остаётся отдельным: облачный опрос, локальный протокол 3.1–3.5 и
+ * IoT MQTT живут в modules/tuya, фоновые задачи — в scripts/cycle_tuya*.php.
+ * Настройки хранятся в конфигурации модуля, а общие сервисы ядра используются
+ * только для циклов, сессии и привязок свойств.
+ *
+ * Изменения:
+ * 2026-10-23 — приведён к текущей структуре ядра: название «Tuya», убраны
+ *   define(), параметры читаются через gr() с приведением типов, действия
+ *   требуют POST и CSRF-токен, циклы управляются CycleManager и сами
+ *   отключаются, когда режим не настроен; сетевые вызовы получили таймауты и
+ *   heartbeat для watchdog; удалён мёртвый код (сцены, пульты, tucommands,
+ *   $session->data).
+ *
  * @package project
  * @author <fandaymon@gmail.com>
- * @copyright 2019-2021 (c)
- * @version 2021.08.28
+ * @copyright 2019-2026 (c)
  */
-
-
-define('TUYA_LOCAL_PORT', 9898);
-define('TUYA_WEB', 'https://px1.tuyaeu.com');
-
 
 class tuya extends module
 {
+    /**
+     * Имя цикла, которому класс сообщает heartbeat во время блокирующих
+     * сетевых вызовов. Пустая строка — класс работает из веб-запроса или
+     * очереди, и трогать heartbeat чужого цикла нельзя.
+     */
+    public string $cycleName = '';
+
+    /** Таймауты сети (сек): цикл не должен молчать дольше CYCLE_HEARTBEAT_TIMEOUT. */
+    private const HTTP_CONNECT_TIMEOUT = 5;
+    private const HTTP_TIMEOUT = 15;
+
     /**
      * tuya
      *
@@ -24,7 +43,7 @@ class tuya extends module
     function __construct()
     {
         $this->name = 'tuya';
-        $this->title = 'Устройства Tuya';
+        $this->title = 'Tuya';
         $this->module_category = '<#LANG_SECTION_DEVICES#>';
         $this->checkInstalled();
     }
@@ -38,23 +57,13 @@ class tuya extends module
      */
     function saveParams($data = 0)
     {
-        $p = array();
-        if (isset($this->id)) {
-            $p["id"] = $this->id;
-        }
-        if (isset($this->view_mode)) {
-            $p["view_mode"] = $this->view_mode;
-        }
-        if (isset($this->edit_mode)) {
-            $p["edit_mode"] = $this->edit_mode;
-        }
-        if (isset($this->data_source)) {
-            $p["data_source"] = $this->data_source;
-        }
-        if (isset($this->tab)) {
-            $p["tab"] = $this->tab;
-        }
-        return parent::saveParams($p);
+        return parent::saveParams(array(
+            'id' => (int)($this->id ?? 0),
+            'view_mode' => (string)($this->view_mode ?? ''),
+            'edit_mode' => (string)($this->edit_mode ?? ''),
+            'data_source' => (string)($this->data_source ?? ''),
+            'tab' => (string)($this->tab ?? ''),
+        ));
     }
 
     /**
@@ -66,30 +75,34 @@ class tuya extends module
      */
     function getParams()
     {
-        global $id;
-        global $mode;
-        global $view_mode;
-        global $edit_mode;
-        global $data_source;
-        global $tab;
-
-        if (isset($id)) {
+        $id = gr('id', 'int');
+        if ($id > 0) {
             $this->id = $id;
         }
-        if (isset($mode)) {
-            $this->mode = $mode;
+
+        $mode = gr('mode');
+        if (is_scalar($mode) && $mode !== '') {
+            $this->mode = (string)$mode;
         }
-        if (isset($view_mode)) {
-            $this->view_mode = $view_mode;
+
+        $viewMode = gr('view_mode');
+        if (is_scalar($viewMode)) {
+            $this->view_mode = (string)$viewMode;
         }
-        if (isset($edit_mode)) {
-            $this->edit_mode = $edit_mode;
+
+        $editMode = gr('edit_mode');
+        if (is_scalar($editMode)) {
+            $this->edit_mode = (string)$editMode;
         }
-        if (isset($data_source)) {
-            $this->data_source = $data_source;
+
+        $dataSource = gr('data_source');
+        if (is_scalar($dataSource)) {
+            $this->data_source = (string)$dataSource;
         }
-        if (isset($tab)) {
-            $this->tab = $tab;
+
+        $tab = gr('tab');
+        if (is_scalar($tab)) {
+            $this->tab = (string)$tab;
         }
     }
 
@@ -102,7 +115,12 @@ class tuya extends module
      */
     function run()
     {
-        global $session;
+        // Модульный AJAX приходит с action=admin (так его вызывает ядро),
+        // поэтому поиск устройств обрабатывается до отрисовки страницы.
+        if (!empty($this->ajax) && gr('op') === 'scan') {
+            $this->scanDevices();
+            exit;
+        }
 
         $out = array();
 
@@ -131,28 +149,163 @@ class tuya extends module
         $this->result = $p->result;
     }
 
+    /**
+     * Страница модуля доступна только после POST: настройки и привязки меняют
+     * данные, а GET-запрос не должен их трогать (F5 и префетч не повторяют запись).
+     */
+    private function isPost(): bool
+    {
+        return isset($_SERVER['REQUEST_METHOD']) && strtoupper((string)$_SERVER['REQUEST_METHOD']) === 'POST';
+    }
+
+    /**
+     * Токен CSRF хранится в сессии ядра; шаблоны выводят его в скрытом поле.
+     */
+    public function csrfToken(): string
+    {
+        $session = \MajorDoMo\Core\Core::session();
+        if (!$session->has('tuya_csrf')) {
+            $session->set('tuya_csrf', bin2hex(random_bytes(32)));
+        }
+        return (string)$session->get('tuya_csrf');
+    }
+
+    /**
+     * Проверка токена для POST-форм. Для ссылок (удаление) токен приходит в
+     * query-параметре — чужой сайт его не знает.
+     */
+    public function checkCsrf(): bool
+    {
+        $token = gr('csrf_token');
+        $token = is_scalar($token) ? (string)$token : '';
+        $expected = (string)\MajorDoMo\Core\Core::session()->get('tuya_csrf');
+        return $expected !== '' && $token !== '' && hash_equals($expected, $token);
+    }
+
+    /**
+     * Сетевой вызов может занять десятки секунд: сообщаем watchdog-у цикла, что
+     * процесс жив, иначе он решит, что цикл завис.
+     */
+    private function touchCycleHeartbeat(): void
+    {
+        if ($this->cycleName !== '') {
+            setGlobal($this->cycleName . 'Run', time(), 1);
+        }
+    }
+
+    /**
+     * Сколько устройств использует каждый источник статуса (0 — облако,
+     * 1 — локально, 2 — MQTT). null — запрос не удался: состояние неизвестно,
+     * и циклы лучше не трогать, чем отключить их из-за сбоя БД.
+     *
+     * @return array<int,int>|null
+     */
+    private function deviceStatusCounts(): ?array
+    {
+        $rows = SQLSelect('SELECT STATUS, COUNT(*) AS CNT FROM tudevices GROUP BY STATUS');
+        if (!is_array($rows)) {
+            return null;
+        }
+        $counts = array();
+        foreach ($rows as $row) {
+            $counts[(int)$row['STATUS']] = (int)$row['CNT'];
+        }
+        return $counts;
+    }
+
+    /**
+     * Какие циклы модулю реально нужны при текущих настройках и устройствах.
+     *
+     * @return array<string,bool> имя цикла => нужен ли он
+     */
+    public function cycleRequirements(): array
+    {
+        $this->getConfig();
+        $counts = $this->deviceStatusCounts();
+        $localRequired = $counts === null ? true : (($counts[1] ?? 0) > 0);
+        $iotRequired = $counts === null ? true : (($counts[2] ?? 0) > 0);
+
+        return array(
+            // Облачный цикл: обнаружение в HA-облаке и опрос родного облака Tuya.
+            'cycle_tuya' => !empty($this->config['TUYA_WEB']) || !empty($this->config['TUYA_HA']),
+            // Локальный опрос нужен, только если устройство получает статус локально.
+            'cycle_local_tuya' => $localRequired,
+            // IoT MQTT — только с ключами платформы и устройством на этом источнике.
+            'cycle_tuya_iot' => $iotRequired
+                && !empty($this->config['TUYA_IOT'])
+                && trim((string)($this->config['TUYA_CLIENT_ID'] ?? '')) !== ''
+                && trim((string)($this->config['TUYA_CLIENT_SECRET'] ?? '')) !== '',
+        );
+    }
+
+    public function cycleIsNeeded(string $cycle): bool
+    {
+        $requirements = $this->cycleRequirements();
+        return !empty($requirements[$cycle]);
+    }
+
+    /**
+     * Держит состояние циклов в соответствии с настройками: неиспользуемый
+     * режим отключается, включённый — запускается; при сохранении настроек
+     * работающие циклы перезапускаются, чтобы прочитать новую конфигурацию.
+     */
+    public function reconcileCycles(bool $restartRunning = false): void
+    {
+        try {
+            $manager = new \MajorDoMo\Core\Cycles\CycleManager(ROOT);
+            foreach ($this->cycleRequirements() as $cycle => $needed) {
+                $state = $manager->state($cycle);
+                if ($needed) {
+                    if ($state['desired'] === \MajorDoMo\Core\Cycles\CycleStateStore::DISABLED) {
+                        $manager->enable($cycle);
+                    } elseif ($restartRunning && $state['desired'] === \MajorDoMo\Core\Cycles\CycleStateStore::RUNNING) {
+                        $manager->restart($cycle);
+                    }
+                } elseif ($state['desired'] !== \MajorDoMo\Core\Cycles\CycleStateStore::DISABLED) {
+                    $manager->disable($cycle);
+                }
+            }
+        } catch (\Throwable $e) {
+            DebMes('Tuya: не удалось согласовать состояние циклов — ' . $e->getMessage(), 'tuya', 'error');
+        }
+    }
+
+    /**
+     * Сам цикл отключается, когда его режим не настроен: супервизор не будет
+     * поднимать процесс снова и не станет писать cycle_hang/cycle_stop.
+     */
+    public function disablePluginCycle(string $cycle, string $reason): void
+    {
+        try {
+            (new \MajorDoMo\Core\Cycles\CycleManager(ROOT))->disable($cycle);
+        } catch (\Throwable $e) {
+            DebMes('Tuya: не удалось отключить ' . $cycle . ' — ' . $e->getMessage(), 'tuya', 'error');
+        }
+        DebMes('Цикл ' . $cycle . ' отключён: ' . $reason, 'tuya');
+    }
+
+    /** Человеческая подпись состояния цикла для шапки страницы. */
+    private function cycleLabel(string $cycle): string
+    {
+        try {
+            $state = (new \MajorDoMo\Core\Cycles\CycleManager(ROOT))->state($cycle);
+        } catch (\Throwable $e) {
+            return 'неизвестно';
+        }
+        if ($state['status'] === 'disabled' || $state['desired'] === 'disabled') {
+            return 'отключён';
+        }
+        return $state['online'] ? 'работает' : 'остановлен';
+    }
 
     function admin(&$out)
     {
         $this->getConfig();
 
-        if ((time() - (int)gg('cycle_tuyaRun')) < (int)$this->config['TUYA_INTERVAL'] + 30) {
-            $out['CYCLERUN'] = 1;
-        } else {
-            $out['CYCLERUN'] = 0;
-        }
-
-        if ((time() - (int)gg('cycle_local_tuyaRun')) < 10 * 2) {
-            $out['LOCAL_CYCLERUN'] = 1;
-        } else {
-            $out['LOCAL_CYCLERUN'] = 0;
-        }
-
-        if ((time() - (int)gg('cycle_tuya_iotRun')) < 10 * 2) {
-            $out['IOT_CYCLERUN'] = 1;
-        } else {
-            $out['IOT_CYCLERUN'] = 0;
-        }
+        $out['CYCLERUN'] = $this->cycleLabel('cycle_tuya');
+        $out['LOCAL_CYCLERUN'] = $this->cycleLabel('cycle_local_tuya');
+        $out['IOT_CYCLERUN'] = $this->cycleLabel('cycle_tuya_iot');
+        $out['CSRF_TOKEN'] = $this->csrfToken();
 
 
         $out['TUYA_USERNAME'] = htmlspecialchars((string)($this->config['TUYA_USERNAME'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -173,80 +326,56 @@ class tuya extends module
         $out['TUYA_CLIENT_SECRET'] = htmlspecialchars((string)($this->config['TUYA_CLIENT_SECRET'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         if ($this->view_mode == 'update_settings') {
-
-            global $tuya_username;
-            $this->config['TUYA_USERNAME'] = $tuya_username;
-
-            global $tuya_passwd;
-            $this->config['TUYA_PASSWD'] = $tuya_passwd;
-
-            global $tuya_ha;
-            if (isset($tuya_ha) && $tuya_ha) {
-                $this->config['TUYA_HA'] = true;
-            } else {
-                $this->config['TUYA_HA'] = false;
+            // Сохранение настроек меняет данные: только POST и только свой токен.
+            if (!$this->isPost() || !$this->checkCsrf()) {
+                DebMes('Tuya: запрос сохранения настроек отклонён — нужен POST с CSRF-токеном.', 'tuya');
+                $this->redirect('?');
             }
 
-            global $tuya_interval;
-            $this->config['TUYA_INTERVAL'] = $tuya_interval;
+            $this->config['TUYA_USERNAME'] = gr('tuya_username');
+            $this->config['TUYA_PASSWD'] = gr('tuya_passwd');
+            $this->config['TUYA_HA'] = !empty(gr('tuya_ha'));
 
-            global $tuya_local_interval;
-            $this->config['TUYA_LOCAL_INTERVAL'] = $tuya_local_interval;
+            $this->config['TUYA_INTERVAL'] = max(30, gr('tuya_interval', 'int'));
+            $this->config['TUYA_LOCAL_INTERVAL'] = max(1, gr('tuya_local_interval', 'int'));
+            $this->config['TUYA_LOCAL_IP'] = gr('tuya_local_ip');
 
-            global $tuya_local_ip;
-            $this->config['TUYA_LOCAL_IP'] = $tuya_local_ip;
-
-            global $tuya_sid;
-            $this->config['TUYA_SID'] = $tuya_sid;
-
-            global $tuya_bztype;
-            if (!isset($tuya_bztype) || empty($tuya_bztype)) {
-                $tuya_bztype = 'tuya';
-            } elseif ($tuya_bztype != 'tuya' && $tuya_bztype != 'smart_life') {
-                $tuya_bztype = 'tuya';
+            $bztype = (string)gr('tuya_bztype');
+            if ($bztype !== 'smart_life') {
+                $bztype = 'tuya';
             }
-            if ($tuya_bztype != $this->config['TUYA_BZTYPE']) {
+            if ($bztype !== (string)($this->config['TUYA_BZTYPE'] ?? '')) {
+                // Смена приложения меняет домен и сессию — старый SID больше не годен.
                 $this->config['TUYA_SID'] = '';
             }
-            $this->config['TUYA_BZTYPE'] = $tuya_bztype;
+            $this->config['TUYA_BZTYPE'] = $bztype;
+            $this->config['TUYA_CCODE'] = gr('tuya_ccode');
 
-            global $tuya_ccode;
-            $this->config['TUYA_CCODE'] = $tuya_ccode;
+            $this->config['TUYA_WEB'] = !empty(gr('tuya_web'));
+            $this->config['TUYA_WEB_INTERVAL'] = max(10, gr('tuya_web_interval', 'int'));
+            $this->config['TUYA_WEB_ENDPOINT'] = gr('tuya_web_endpoint');
 
-
-            global $tuya_web;
-            $this->config['TUYA_WEB'] = $tuya_web;
-
-            global $tuya_web_interval;
-            $this->config['TUYA_WEB_INTERVAL'] = $tuya_web_interval;
-
-            global $tuya_web_endpoint;
-            $this->config['TUYA_WEB_ENDPOINT'] = $tuya_web_endpoint;
-
-            global $tuya_iot;
-            $this->config['TUYA_IOT'] = $tuya_iot;
-            global $tuya_client_id;
-            $this->config['TUYA_CLIENT_ID'] = $tuya_client_id;
-            global $tuya_client_secret;
-            $this->config['TUYA_CLIENT_SECRET'] = $tuya_client_secret;
-
-
-            global $tuya_cycle_debug;
-            $this->config['TUYA_CYCLE_DEBUG'] = $tuya_cycle_debug;
+            $this->config['TUYA_IOT'] = !empty(gr('tuya_iot'));
+            $this->config['TUYA_CLIENT_ID'] = gr('tuya_client_id');
+            $this->config['TUYA_CLIENT_SECRET'] = gr('tuya_client_secret');
+            $this->config['TUYA_CYCLE_DEBUG'] = !empty(gr('tuya_cycle_debug'));
 
             if ($this->config['TUYA_HA']) {
-                $token = json_decode($this->getToken($tuya_username, $tuya_passwd, $tuya_bztype, $tuya_ccode));
-                //debmes($token->responseStatus);
+                $token = json_decode((string)$this->getToken(
+                    (string)$this->config['TUYA_USERNAME'],
+                    (string)$this->config['TUYA_PASSWD'],
+                    (string)$this->config['TUYA_BZTYPE'],
+                    (string)$this->config['TUYA_CCODE']
+                ));
                 if (isset($token->responseStatus) && $token->responseStatus === 'error') {
-                    $message = $token->responseMsg;
-                    debmes($message);
+                    DebMes('Tuya HA: не удалось получить токен — ' . ($token->responseMsg ?? 'неизвестная ошибка'), 'tuya', 'error');
+                    registerError('tuya_ha_auth', 'Tuya: HA-облако отклонило вход. Проверьте логин, пароль и приложение.');
+                } elseif (isset($token->access_token)) {
+                    $this->config['TUYA_ACCESS_TOKEN'] = $token->access_token;
+                    $this->config['TUYA_REFRESH_TOKEN'] = $token->refresh_token;
+                    $this->config['TUYA_TIME'] = time() + (int)$token->expires_in;
+                    $this->Tuya_Discovery_Devices($token->access_token);
                 }
-                $this->config['TUYA_ACCESS_TOKEN'] = $token->access_token;
-                $this->config['TUYA_REFRESH_TOKEN'] = $token->refresh_token;
-                $this->config['TUYA_TIME'] = time() + $token->expires_in;
-                $this->Tuya_Discovery_Devices($token->access_token);
-
-
             }
             $this->saveConfig();
 
@@ -261,14 +390,13 @@ class tuya extends module
                 $this->Tuya_Web_Discovery_Devices();
             }
 
-            setGlobal('cycle_tuyaControl', 'restart');
-            setGlobal('cycle_local_tuyaControl', 'restart');
-            setGlobal('cycle_tuya_iotControl', 'restart');
-
+            // Циклы читают настройки при старте: перезапускаем работающие и
+            // отключаем те, чей режим больше не выбран.
+            $this->reconcileCycles(true);
 
             $this->redirect('?');
         }
-        if (isset($this->data_source) && !$_GET['data_source'] && !$_POST['data_source']) {
+        if (isset($this->data_source) && !gr('data_source')) {
             $out['SET_DATASOURCE'] = 1;
         }
 
@@ -285,41 +413,23 @@ class tuya extends module
                 $this->redirect("?data_source=tudevices&tab=" . $this->tab);
             }
         }
-
-
-        if ($this->data_source == 'tucommands') {
-            if ($this->view_mode == '' || $this->view_mode == 'search_tucommands') {
-                $this->search_tucommands($out);
-            }
-            if ($this->view_mode == 'edit_tucommands') {
-                $this->edit_tucommands($out, $this->id);
-            }
-        }
     }
 
     /**
-     * FrontEnd
+     * FrontEnd / AJAX
      *
-     * Module frontend
+     * Отдельной пользовательской страницы у модуля нет: AJAX-поиск устройств в
+     * локальной сети и обычный просмотр используют один интерфейс.
      *
      * @access public
      */
     function usual(&$out)
     {
         if ($this->ajax) {
-            global $op;
-            if ($op == 'scan') {
+            if (gr('op') === 'scan') {
                 $this->scanDevices();
                 exit;
             }
-            //        if ($op == 'process') {
-            //           global $message;
-            //           global $ip;
-            //           global $log_debmes;
-            //           global $log_gw_heartbeat;
-
-//            $this->processMessage($message, $ip, $log_debmes, $log_gw_heartbeat);
-            //        }
         }
         $this->admin($out);
     }
@@ -341,7 +451,21 @@ class tuya extends module
      */
     function edit_tudevices(&$out, $id)
     {
+        // Сохранение карточки и удаление отдельного свойства меняют данные:
+        // только POST для формы и CSRF-токен для ссылки удаления.
+        if ($this->mode === 'update' && (!$this->isPost() || !$this->checkCsrf())) {
+            DebMes('Tuya: сохранение устройства отклонено — нужен POST с CSRF-токеном.', 'tuya');
+            $this->redirect('?data_source=tudevices');
+        }
+        if (gr('delete_id', 'int') > 0 && !$this->checkCsrf()) {
+            DebMes('Tuya: удаление свойства отклонено — нет CSRF-токена.', 'tuya');
+            $this->redirect('?data_source=tudevices');
+        }
         require(DIR_MODULES . $this->name . '/tuya_edit.inc.php');
+        if ($this->mode === 'update') {
+            // Устройство могло сменить источник статуса — циклы должны это учесть.
+            $this->reconcileCycles();
+        }
     }
 
     /**
@@ -351,37 +475,40 @@ class tuya extends module
      */
     function delete_tudevices($id)
     {
-        $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . (int)$id);
+        $id = (int)$id;
+        if ($id <= 0) {
+            return;
+        }
+        if (!$this->checkCsrf()) {
+            DebMes('Tuya: удаление устройства отклонено — нет CSRF-токена.', 'tuya');
+            $this->redirect('?data_source=tudevices');
+        }
+        $rec = SQLSelectOne("SELECT * FROM tudevices WHERE ID=" . $id);
+        if (!$rec) {
+            return;
+        }
 
+        // Сначала снимаем привязки: после удаления команд их уже не найти.
+        $linked = SQLSelect("SELECT * FROM tucommands WHERE DEVICE_ID=" . $id . " AND LINKED_OBJECT!='' AND LINKED_PROPERTY!=''");
+        foreach ((array)$linked as $command) {
+            removeLinkedProperty($command['LINKED_OBJECT'], $command['LINKED_PROPERTY'], $this->name);
+        }
 
-        SQLExec("DELETE FROM tuvalues WHERE ID IN (SELECT ID FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "')");
-        SQLExec("DELETE FROM tucommands WHERE DEVICE_ID='" . $rec['ID'] . "'");
-        SQLExec("DELETE FROM tudevices WHERE ID='" . $rec['ID'] . "'");
+        SQLExec("DELETE FROM tuvalues WHERE ID IN (SELECT ID FROM tucommands WHERE DEVICE_ID=" . $id . ")");
+        SQLExec("DELETE FROM tucommands WHERE DEVICE_ID=" . $id);
+        SQLExec("DELETE FROM tudevices WHERE ID=" . $id);
+
+        $this->reconcileCycles();
     }
 
-    /**
-     * tucommands search
-     *
-     * @access public
-     */
-    function search_tucommands(&$out)
-    {
-        require(DIR_MODULES . $this->name . '/tucommands_search.inc.php');
-    }
-
-    /**
-     * tucommands edit/add
-     *
-     * @access public
-     */
-    function edit_tucommands(&$out, $id)
-    {
-        require(DIR_MODULES . $this->name . '/tucommands_edit.inc.php');
-    }
 
 
     function scanDevices()
     {
+        if (!function_exists('socket_create')) {
+            echo 'Расширение PHP sockets не установлено: поиск в локальной сети недоступен.';
+            return;
+        }
 
         $udp_key_v31 = hex2bin(md5('yGAdlopoPVldABfn'));
         $udp_key_v33_34 = hex2bin(md5('yGAdlopoPVldABfn')); // Для совместимости, может быть одинаковым
@@ -407,7 +534,7 @@ class tuya extends module
 
         // Сокет для протокола 3.5 (порт 7000)
         $socket_v35 = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-        socket_bind($socket_v35, $local_ip, 7000);
+        socket_bind($socket_v35, $local_ip !== '' ? $local_ip : '0.0.0.0', 7000);
         socket_set_option($socket_v35, SOL_SOCKET, SO_RCVTIMEO, array("sec" => 2, "usec" => 0));
         socket_set_option($socket_v35, SOL_SOCKET, SO_BROADCAST, 1); // Включаем широковещание
 
@@ -517,10 +644,20 @@ class tuya extends module
         if (!empty($this->config['TUYA_LOCAL_IP'])) {
             return $this->config['TUYA_LOCAL_IP'];
         }
-        $ip = trim(exec('hostname -I'));
-        $ips = explode(' ', $ip);
-        return $ips[0];
-
+        if (PHP_OS_FAMILY === 'Windows') {
+            // hostname -I есть только в Linux-подобных системах.
+            $ip = gethostbyname((string)gethostname());
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        } else {
+            $ip = trim((string)shell_exec('hostname -I'));
+            $ips = preg_split('/\s+/', $ip);
+            if (!empty($ips[0]) && filter_var($ips[0], FILTER_VALIDATE_IP)) {
+                return $ips[0];
+            }
+        }
+        return (string)($_SERVER['SERVER_ADDR'] ?? '');
     }
 
 
@@ -559,6 +696,7 @@ class tuya extends module
 
     function getToken($username, $passwd, $bztype, $ccode)
     {
+        $this->touchCycleHeartbeat();
         $sURL = 'https://px1.tuyaeu.com/homeassistant/auth.do';
         $sPD = "userName=" . $username . "&password=" . $passwd . "&countryCode=" . $ccode . "&bizType=" . $bztype . "&from=tuya";
         $aHTTP = array(
@@ -566,11 +704,16 @@ class tuya extends module
                 array(
                     'method' => 'POST',
                     'header' => 'Content-type: application/x-www-form-urlencoded',
-                    'content' => $sPD
+                    'content' => $sPD,
+                    'timeout' => self::HTTP_TIMEOUT,
                 )
         );
         $context = stream_context_create($aHTTP);
-        $contents = file_get_contents($sURL, false, $context);
+        $contents = @file_get_contents($sURL, false, $context);
+        if ($contents === false) {
+            DebMes('Tuya HA: нет ответа от px1.tuyaeu.com (таймаут ' . self::HTTP_TIMEOUT . ' с).', 'tuya', 'error');
+            return '';
+        }
 
         return $contents;
     }
@@ -579,7 +722,8 @@ class tuya extends module
     {
         $this->getConfig();
 
-        if (time() > $this->config['TUYA_TIME']) {
+        if (time() > (int)($this->config['TUYA_TIME'] ?? 0)) {
+            $this->touchCycleHeartbeat();
             $sURL = 'https://px1.tuyaeu.com/';
             $sPD = "grant_type=refresh_token&refresh_token=" . $this->config['TUYA_REFRESH_TOKEN'];
 
@@ -589,43 +733,45 @@ class tuya extends module
                     array(
                         'method' => 'GET',
                         'header' => 'Content-type: application/x-www-form-urlencoded',
-                        'content' => $sPD
+                        'content' => $sPD,
+                        'timeout' => self::HTTP_TIMEOUT,
                     )
             );
             $context = stream_context_create($aHTTP);
-            $contents = file_get_contents($sURL, false, $context);
+            $contents = @file_get_contents($sURL, false, $context);
 
-            $token = json_decode($contents);
+            $token = json_decode((string)$contents);
 
-            if ($token->access_token) {
+            if (isset($token->access_token) && $token->access_token) {
                 $this->config['TUYA_ACCESS_TOKEN'] = $token->access_token;
                 $this->config['TUYA_REFRESH_TOKEN'] = $token->refresh_token;
                 $this->config['TUYA_TIME'] = time() + $token->expires_in;
 
                 $this->saveConfig();
             } else {
-                $tuya_username = $this->config['TUYA_USERNAME'];
-                $tuya_passwd = $this->config['TUYA_PASSWD'];
-                $tuya_interval = $this->config['TUYA_INTERVAL'];
-                $tuya_bztype = $this->config['TUYA_BZTYPE'];
-                $tuya_ccode = $this->config['TUYA_CCODE'];
-
-                $token = json_decode($this->getToken($tuya_username, $tuya_passwd, $tuya_bztype, $tuya_ccode));
-                //debmes($token->responseStatus);
+                $token = json_decode($this->getToken(
+                    (string)$this->config['TUYA_USERNAME'],
+                    (string)$this->config['TUYA_PASSWD'],
+                    (string)$this->config['TUYA_BZTYPE'],
+                    (string)$this->config['TUYA_CCODE']
+                ));
                 if (isset($token->responseStatus) && $token->responseStatus === 'error') {
-                    $message = $token->responseMsg;
-                    debmes('Не удалось получить токен HA. Пользователь: ' . $tuya_username . ', приложение: ' . $tuya_bztype . ', ошибка: ' . $message, 'tuya');
+                    DebMes('Не удалось получить токен HA. Пользователь: ' . $this->config['TUYA_USERNAME']
+                        . ', приложение: ' . $this->config['TUYA_BZTYPE'] . ', ошибка: ' . ($token->responseMsg ?? 'без описания'), 'tuya', 'error');
                 }
-                $this->config['TUYA_ACCESS_TOKEN'] = $token->access_token;
-                $this->config['TUYA_REFRESH_TOKEN'] = $token->refresh_token;
-                $this->config['TUYA_TIME'] = time() + $token->expires_in;
-                $this->Tuya_Discovery_Devices($token->access_token);
+                // Пустой ответ сети не должен превращаться в фатальную ошибку цикла.
+                if (isset($token->access_token)) {
+                    $this->config['TUYA_ACCESS_TOKEN'] = $token->access_token;
+                    $this->config['TUYA_REFRESH_TOKEN'] = $token->refresh_token;
+                    $this->config['TUYA_TIME'] = time() + (int)$token->expires_in;
+                    $this->Tuya_Discovery_Devices($token->access_token);
 
-                $this->saveConfig();
+                    $this->saveConfig();
+                }
             }
         }
 
-        return $this->config['TUYA_ACCESS_TOKEN'];
+        return $this->config['TUYA_ACCESS_TOKEN'] ?? '';
     }
 
     function TuyaLocalEncrypt($command, $json, $local_key, $tuya_ver = '3.3')
@@ -664,6 +810,7 @@ class tuya extends module
 
     function TuyaLocalMsg($command, $dev_id, $local_key, $local_ip, $data = '', $cid = '', $tuya_ver = '3.3')
     {
+        $this->touchCycleHeartbeat();
 
         if ($tuya_ver == '3.4') {
 
@@ -809,6 +956,7 @@ class tuya extends module
 
     function TuyaLocalMsg34($command, $dev_id, $local_key, $local_ip, $dps, $cid, $dps12 = '')
     {
+        $this->touchCycleHeartbeat();
         $real_local_key = $local_key;
 
         $hexByte = "03";
@@ -992,6 +1140,7 @@ class tuya extends module
 
     function tuyaLocalMsg35($command, $dev_id, $local_key, $local_ip, $dps, $cid, $dps12 = '')
     {
+        $this->touchCycleHeartbeat();
 
         $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_option($sock, SOL_SOCKET, SO_RCVTIMEO, ["sec" => 2, "usec" => 0]);
@@ -1276,6 +1425,8 @@ class tuya extends module
 
     function TuyaWebRequest($options, $v = '1.0')
     {
+        // Запрос к облаку блокирующий: сначала отмечаемся в watchdog-е цикла.
+        $this->touchCycleHeartbeat();
 
         $this->getConfig();
         $sid = $this->config['TUYA_SID'];
@@ -1367,7 +1518,11 @@ class tuya extends module
         $pairs['sign'] = hash_hmac('sha256', $strToSign, $keyHmac);
         $result = '';
 
-        $result = getURL($endpoint . '?' . http_build_query($pairs), 0);
+        // getURL по умолчанию ждёт до 45 секунд; для опроса этого мало.
+        $result = getURL($endpoint . '?' . http_build_query($pairs), 0, '', '', false, array(
+            CURLOPT_CONNECTTIMEOUT => self::HTTP_CONNECT_TIMEOUT,
+            CURLOPT_TIMEOUT => self::HTTP_TIMEOUT,
+        ));
 
         return $result;
 
@@ -1448,8 +1603,8 @@ class tuya extends module
 
         $sc = array();
 
-        foreach ($result['result'] as $scheme) {
-            foreach (json_decode($scheme['schemaInfo']['schema'], true) as $dp) {
+        foreach ((array)($result['result'] ?? array()) as $scheme) {
+            foreach ((array)json_decode((string)($scheme['schemaInfo']['schema'] ?? ''), true) as $dp) {
                 if (!isset($dp['mode'])) $dp['mode'] = '';
                 if (!isset($dp['code'])) $dp['code'] = '';
                 if (!isset($dp['property']['min'])) $dp['property']['min'] = '';
@@ -1532,7 +1687,7 @@ class tuya extends module
 
             $result = json_decode($apiResult, true);
 
-            foreach ($result['result'] as $device) {
+            foreach ((array)($result['result'] ?? array()) as $device) {
                 if (isset($device['moduleMap']['infrared'])) {
                     continue;
                 }
@@ -1591,28 +1746,28 @@ class tuya extends module
                 }
 
                 $data = '';
-                if (substr($device['categoryCode'], 0, 3) == 'wf_') {
+                if (substr((string)($device['categoryCode'] ?? ''), 0, 3) == 'wf_') {
                     if ($rec['STATUS'] == 0) {
-                        if ($device['moduleMap']['wifi']['isOnline']) {
+                        if (!empty($device['moduleMap']['wifi']['isOnline'])) {
                             $this->processCommand($rec['ID'], 'online', 1);
                         } else {
                             $this->processCommand($rec['ID'], 'online', 0);
                         }
                     }
-                } else if (substr($device['categoryCode'], 0, 4) == 'zig_') {
-                    if ($device['moduleMap']['zigbee']['isOnline']) {
+                } else if (substr((string)($device['categoryCode'] ?? ''), 0, 4) == 'zig_') {
+                    if (!empty($device['moduleMap']['zigbee']['isOnline'])) {
                         $this->processCommand($rec['ID'], 'online', 1);
                     } else {
                         $this->processCommand($rec['ID'], 'online', 0);
                     }
-                } else if (substr($device['categoryCode'], 0, 4) == 'sub_') {
-                    if ($device['moduleMap']['subpieces']['isOnline']) {
+                } else if (substr((string)($device['categoryCode'] ?? ''), 0, 4) == 'sub_') {
+                    if (!empty($device['moduleMap']['subpieces']['isOnline'])) {
                         $this->processCommand($rec['ID'], 'online', 1);
                     } else {
                         $this->processCommand($rec['ID'], 'online', 0);
                     }
-                } else if (substr($device['categoryCode'], 0, 4) == 'sig_') {
-                    if ($device['moduleMap']['bluetooth']['isOnline']) {
+                } else if (substr((string)($device['categoryCode'] ?? ''), 0, 4) == 'sig_') {
+                    if (!empty($device['moduleMap']['bluetooth']['isOnline'])) {
                         $this->processCommand($rec['ID'], 'online', 1);
                     } else {
                         $this->processCommand($rec['ID'], 'online', 0);
@@ -1620,7 +1775,7 @@ class tuya extends module
                 }
 
                 if ($rec['STATUS'] == 0) {
-                    foreach ($device['dps'] as $key => $value) {
+                    foreach ((array)($device['dps'] ?? array()) as $key => $value) {
 
                         if (is_bool($value)) {
                             $value = (($value) ? 1 : 0);
@@ -1639,10 +1794,11 @@ class tuya extends module
                     }
 
                 }
-                // Синхронизация: удаление и переименование устройств
-                $this->syncDeletedDevices($gid);
-                $this->syncDeviceTitles($gid);
             }
+            // Синхронизация — один раз на дом, а не на каждое устройство: иначе
+            // цикл делал по два лишних запроса в облако на каждое устройство.
+            $this->syncDeletedDevices($gid);
+            $this->syncDeviceTitles($gid);
         }
     }
 
@@ -1652,7 +1808,7 @@ class tuya extends module
             'requiresSID' => 1]);
         $result = json_decode($apiResult, true);
 
-        foreach ($result['result'] as $home) {
+        foreach ((array)($result['result'] ?? array()) as $home) {
             $gid = $home['groupId'];
             $sc = $this->Tuya_Web_Scheme($gid);
             $apiResult = $this->TuyaWebRequest(['action' => 'tuya.m.my.group.device.list',
@@ -1660,7 +1816,7 @@ class tuya extends module
                 'requiresSID' => 1]);
 
             $result = json_decode($apiResult, true);
-            foreach ($result['result'] as $device) {
+            foreach ((array)($result['result'] ?? array()) as $device) {
                 if (isset($device['moduleMap']['infrared'])) {
                     continue;
                 }
@@ -1721,14 +1877,14 @@ class tuya extends module
                 }
 
                 $data = '';
-                if (substr($device['categoryCode'], 0, 3) == 'wf_') {
-                    if ($device['moduleMap']['wifi']['isOnline']) {
+                if (substr((string)($device['categoryCode'] ?? ''), 0, 3) == 'wf_') {
+                    if (!empty($device['moduleMap']['wifi']['isOnline'])) {
                         $this->processCommand($rec['ID'], 'online', 1);
                     } else {
                         $this->processCommand($rec['ID'], 'online', 0);
                     }
-                } else if (substr($device['categoryCode'], 0, 4) == 'zig_') {
-                    if ($device['moduleMap']['zigbee']['isOnline']) {
+                } else if (substr((string)($device['categoryCode'] ?? ''), 0, 4) == 'zig_') {
+                    if (!empty($device['moduleMap']['zigbee']['isOnline'])) {
                         $this->processCommand($rec['ID'], 'online', 1);
                     } else {
                         $this->processCommand($rec['ID'], 'online', 0);
@@ -1737,20 +1893,20 @@ class tuya extends module
 
 
                 if ($dsp_filled == 0) {
-                    foreach ($device['dps'] as $key => $value) {
+                    foreach ((array)($device['dps'] ?? array()) as $key => $value) {
                         $cmd_rec = SQLSelectOne("SELECT * FROM tucommands WHERE DEVICE_ID=" . (int)$rec['ID'] . " AND TITLE LIKE '" . DBSafe($key) . "'");
 
                         if (empty($cmd_rec)) {
                             $cmd_rec = array();
                             $cmd_rec['TITLE'] = $key;
-                            $cmd_rec['VALUE_MIN'] = $sc[$device['productId']][$key]['min'];
-                            $cmd_rec['MODE'] = $sc[$device['productId']][$key]['mode'];
-                            $cmd_rec['ALIAS'] = $sc[$device['productId']][$key]['code'];
-                            $cmd_rec['VALUE_UNIT'] = $sc[$device['productId']][$key]['unit'];
-                            $cmd_rec['VALUE_TYPE'] = $sc[$device['productId']][$key]['type'];
+                            $cmd_rec['VALUE_MIN'] = ($sc[$device['productId']][$key]['min'] ?? '');
+                            $cmd_rec['MODE'] = ($sc[$device['productId']][$key]['mode'] ?? '');
+                            $cmd_rec['ALIAS'] = ($sc[$device['productId']][$key]['code'] ?? '');
+                            $cmd_rec['VALUE_UNIT'] = ($sc[$device['productId']][$key]['unit'] ?? '');
+                            $cmd_rec['VALUE_TYPE'] = ($sc[$device['productId']][$key]['type'] ?? '');
 
-                            $cmd_rec['VALUE_MAX'] = $sc[$device['productId']][$key]['max'];
-                            $cmd_rec['VALUE_SCALE'] = $sc[$device['productId']][$key]['scale'];
+                            $cmd_rec['VALUE_MAX'] = ($sc[$device['productId']][$key]['max'] ?? '');
+                            $cmd_rec['VALUE_SCALE'] = ($sc[$device['productId']][$key]['scale'] ?? '');
                             if ($cmd_rec['VALUE_SCALE'] == '') $cmd_rec['VALUE_SCALE'] = 0;
                             $cmd_rec['DIVIDEDBY2'] = 0;
                             $cmd_rec['DIVIDEDBY10'] = 0;
@@ -1764,19 +1920,19 @@ class tuya extends module
                             $cmd_rec['ID'] = SQLInsert('tucommands', $cmd_rec);
                             $dsp_filled = 1;
                         } else if ($cmd_rec['ALIAS'] == '') {
-                            $cmd_rec['VALUE_MIN'] = $sc[$device['productId']][$key]['min'];
-                            $cmd_rec['MODE'] = $sc[$device['productId']][$key]['mode'];
-                            $cmd_rec['ALIAS'] = $sc[$device['productId']][$key]['code'];
+                            $cmd_rec['VALUE_MIN'] = ($sc[$device['productId']][$key]['min'] ?? '');
+                            $cmd_rec['MODE'] = ($sc[$device['productId']][$key]['mode'] ?? '');
+                            $cmd_rec['ALIAS'] = ($sc[$device['productId']][$key]['code'] ?? '');
 
-                            $cmd_rec['VALUE_UNIT'] = $sc[$device['productId']][$key]['unit'];
-                            $cmd_rec['VALUE_MAX'] = $sc[$device['productId']][$key]['max'];
+                            $cmd_rec['VALUE_UNIT'] = ($sc[$device['productId']][$key]['unit'] ?? '');
+                            $cmd_rec['VALUE_MAX'] = ($sc[$device['productId']][$key]['max'] ?? '');
 
                             if ($cmd_rec['DIVIDEDBY2'] == 0 && $cmd_rec['DIVIDEDBY10'] == 0 && $cmd_rec['DIVIDEDBY100'] == 0) {
-                                $cmd_rec['VALUE_SCALE'] = $sc[$device['productId']][$key]['scale'];
+                                $cmd_rec['VALUE_SCALE'] = ($sc[$device['productId']][$key]['scale'] ?? '');
                             }
 
                             if ($cmd_rec['VALUE_SCALE'] == '') $cmd_rec['VALUE_SCALE'] = 0;
-                            $cmd_rec['VALUE_TYPE'] = $sc[$device['productId']][$key]['type'];
+                            $cmd_rec['VALUE_TYPE'] = ($sc[$device['productId']][$key]['type'] ?? '');
                             $cmd_rec['ID'] = SQLUpdate('tucommands', $cmd_rec);
                             $dsp_filled = 1;
                         } else {
@@ -2023,9 +2179,9 @@ class tuya extends module
 
         $result = $this->Tuya_IOT_GET('/v1.0/token?grant_type=1', True);
 
-        if (!$result->success) {
+        if (empty($result->success) || empty($result->result->access_token)) {
             $clientId = $this->config['TUYA_CLIENT_ID'] ?? 'не указан';
-            debmes('Не удалось войти в облако IoT: ' . ($result->msg ?? 'неизвестная ошибка') . '. Client ID: ' . $clientId . '. Проверьте ключи доступа на developer.tuya.com.', 'tuya');
+            debmes('Не удалось войти в облако IoT: ' . ($result->msg ?? 'неизвестная ошибка') . '. Client ID: ' . $clientId . '. Проверьте ключи доступа на developer.tuya.com.', 'tuya', 'error');
             return;
         }
 
@@ -2065,13 +2221,13 @@ class tuya extends module
         $this->getConfig();
         $this->config['TUYA_ACCESS_TOKEN'] = '';
         $this->saveConfig();
-        $refresh_token = $this->config['TUYA_REFRESH_TOKEN'];
+        $refresh_token = (string)($this->config['TUYA_REFRESH_TOKEN'] ?? '');
         $url = '/v1.0/iot-03/users/token/' . $refresh_token;
         $url = '/v1.0/token/' . $refresh_token;
 
         $token = $this->Tuya_IOT_GET($url, '', true);
 
-        if (!$token->success) {
+        if (empty($token->success) || empty($token->result->access_token)) {
             debmes('Не удалось обновить токен IoT: ' . ($token->msg ?? 'неизвестная ошибка') . '. Токен истёк, выполняется повторный вход.', 'tuya');
             $token = $this->Tuya_IOT_Login();
         } else {
@@ -2085,15 +2241,22 @@ class tuya extends module
 
     function Tuya_IOT_POST($url, $data, $token_managment = false)
     {
+        $this->touchCycleHeartbeat();
         $base = 'https://openapi.tuyaeu.com';
         $this->getConfig();
-        if (!$token_managment && (time() > ($this->config['TUYA_TOKEN_EXPIRE_TIME'] - 60))) {
+        if (!$token_managment && (time() > ((int)$this->config['TUYA_TOKEN_EXPIRE_TIME'] - 60))) {
             $result = $this->Tuya_IOT_Refresh();
             $this->getConfig();
         }
         $client_id = $this->config['TUYA_CLIENT_ID'];
         $secret = $this->config['TUYA_CLIENT_SECRET'];
         $access_token = $this->config['TUYA_ACCESS_TOKEN'];
+
+        // Без ключей запрос подписи бессмысленен: возвращаем понятную ошибку,
+        // а не пустой ответ API и предупреждение о пустом HMAC.
+        if (trim((string)$client_id) === '' || trim((string)$secret) === '') {
+            return (object)['success' => false, 'msg' => 'Не заданы Client ID и Client Secret платформы IoT'];
+        }
 
         $data = json_encode($data);
         $sha256 = hash('sha256', $data);
@@ -2122,7 +2285,8 @@ class tuya extends module
                 array(
                     'method' => 'POST',
                     'header' => $headers,
-                    'content' => $data
+                    'content' => $data,
+                    'timeout' => self::HTTP_TIMEOUT,
                 )
         );
 
@@ -2144,12 +2308,17 @@ class tuya extends module
 
     function Tuya_IOT_GET($url, $token_managment = false)
     {
+        $this->touchCycleHeartbeat();
         $base = 'https://openapi.tuyaeu.com';
         $this->getConfig();
 
         $client_id = $this->config['TUYA_CLIENT_ID'];
         $secret = $this->config['TUYA_CLIENT_SECRET'];
         $access_token = $this->config['TUYA_ACCESS_TOKEN'];
+
+        if (trim((string)$client_id) === '' || trim((string)$secret) === '') {
+            return (object)['success' => false, 'msg' => 'Не заданы Client ID и Client Secret платформы IoT'];
+        }
 
         $data = '';
         $sha256 = hash('sha256', $data);
@@ -2178,7 +2347,8 @@ class tuya extends module
                 array(
                     'method' => 'GET',
                     'header' => $headers,
-                    'content' => $data
+                    'content' => $data,
+                    'timeout' => self::HTTP_TIMEOUT,
                 )
         );
 
@@ -2288,26 +2458,29 @@ class tuya extends module
             $cmd_rec['ID'] = SQLInsert('tucommands', $cmd_rec);
         }
 
-        if ($cmd_rec['VALUE_SCALE'] == NULL || $cmd_rec['VALUE_SCALE'] == 0) {
-            if ($cmd_rec['DIVIDEDBY10']) $value = $value / 10;
-            if ($cmd_rec['DIVIDEDBY2']) $value = $value / 2;
-            if ($cmd_rec['DIVIDEDBY100']) $value = $value / 100;
+        // Новая команда создана без этих полей: читаем их безопасно, иначе
+        // PHP 8 пишет предупреждение в журнал на каждый первый пакет.
+        $scale = (int)($cmd_rec['VALUE_SCALE'] ?? 0);
+        if ($scale === 0) {
+            if (!empty($cmd_rec['DIVIDEDBY10'])) $value = $value / 10;
+            if (!empty($cmd_rec['DIVIDEDBY2'])) $value = $value / 2;
+            if (!empty($cmd_rec['DIVIDEDBY100'])) $value = $value / 100;
         } else {
-            $value = $value / (10 ** $cmd_rec['VALUE_SCALE']);
+            $value = $value / (10 ** $scale);
         }
 
-        if ($cmd_rec['COLOR_CONVERT']) {
+        if (!empty($cmd_rec['COLOR_CONVERT'])) {
             $value = $this->Tuya_to_RGB($value);
         }
 
-        if ($cmd_rec['DECODE']) {
-            $value = base64_decode($value);
+        if (!empty($cmd_rec['DECODE'])) {
+            $value = base64_decode((string)$value);
         }
 
 
-        if ($cmd_rec['SPLIT']) {
-            $json = json_decode($value);
-            foreach ($json as $k => $d) {
+        if (!empty($cmd_rec['SPLIT'])) {
+            $json = json_decode((string)$value);
+            foreach ((array)$json as $k => $d) {
                 if (is_bool($d)) {
                     $d = ($d) ? 1 : 0;
                 }
@@ -2317,7 +2490,7 @@ class tuya extends module
         }
 
 
-        if ($cmd_rec['POWER_METER']) {
+        if (!empty($cmd_rec['POWER_METER'])) {
 
             $v = base64_decode($value);
 
@@ -2340,11 +2513,11 @@ class tuya extends module
         if (is_null($value)) $value = '';
 
         $linked_value = $value;
-        if ($cmd_rec['COLOR_CONVERT'] == 1 && is_string($linked_value)) {
+        if (!empty($cmd_rec['COLOR_CONVERT']) && is_string($linked_value)) {
             $linked_value = substr($linked_value, 0, 6);
         }
 
-        if ($cmd_rec['REPLACE_LIST'] != '' && is_string($linked_value)) {
+        if (!empty($cmd_rec['REPLACE_LIST']) && is_string($linked_value)) {
             $list = explode(',', $cmd_rec['REPLACE_LIST']);
             foreach ($list as $pair) {
                 $pair = trim($pair);
@@ -2391,11 +2564,11 @@ class tuya extends module
         if ($command == 'state' || $command == 'switch_1' || $command == 'power' || $command == 'Power' || $command == 'switch_on') processSubscriptions('TUSTATUS', array('FIELD' => 'STATE', 'VALUE' => $value, 'ID' => $device_id));
         if ($command == 'online') processSubscriptions('TUSTATUS', array('FIELD' => 'ONLINE', 'VALUE' => $value, 'ID' => $device_id));
 
-        if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_PROPERTY'] && $value !== null) {
+        if (!empty($cmd_rec['LINKED_OBJECT']) && !empty($cmd_rec['LINKED_PROPERTY']) && $value !== null) {
             setGlobal($cmd_rec['LINKED_OBJECT'] . '.' . $cmd_rec['LINKED_PROPERTY'], $linked_value, array($this->name => 1), $this->name);
         }
 
-        if ($cmd_rec['LINKED_OBJECT'] && $cmd_rec['LINKED_METHOD'] && $value !== null) {
+        if (!empty($cmd_rec['LINKED_OBJECT']) && !empty($cmd_rec['LINKED_METHOD']) && $value !== null) {
             if (!is_array($params)) {
                 $params = array();
             }
@@ -2415,13 +2588,12 @@ class tuya extends module
         if ($properties) {
             $linked_value = $value;
 
-            if ($properties[0]['REPLACE_LIST'] != '') {
+            if (!empty($properties[0]['REPLACE_LIST'])) {
                 $list = explode(',', $properties[0]['REPLACE_LIST']);
                 foreach ($list as $pair) {
-                    $pair = trim($pair);
-                    list($new, $old) = explode('=', $pair);
-                    if ($value == $old) {
-                        $value = $new;
+                    $parts = explode('=', trim($pair), 2);
+                    if (count($parts) === 2 && $value == $parts[1]) {
+                        $value = $parts[0];
                         break;
                     }
                 }
@@ -2493,6 +2665,10 @@ class tuya extends module
                     $this->TuyaLocalMsg('SET', $dev_id, $properties[0]['LOCAL_KEY'], $properties[0]['DEV_IP'], $dps, '', $properties[0]['TUYA_VER']);
                 } else {
                     $gw = SQLSelectOne("SELECT * FROM tudevices WHERE DEV_ID='" . DBSafe($properties[0]['MESH_ID']) . "'");
+                    if (!$gw || empty($gw['LOCAL_KEY']) || empty($gw['DEV_IP'])) {
+                        DebMes('Tuya: для устройства ' . $properties[0]['DEV_ID'] . ' не найден шлюз ' . $properties[0]['MESH_ID'] . ' — команда не отправлена.', 'tuya', 'error');
+                        return;
+                    }
                     if ($gw['TUYA_VER'] == '3.3') {
                         $cid = $properties[0]['MAC'];
                     } else {
@@ -2562,10 +2738,9 @@ class tuya extends module
 
         parent::install();
 
-        setGlobal('cycle_tuyaControl', 'restart');
-        setGlobal('cycle_local_tuyaControl', 'restart');
-        setGlobal('cycle_tuya_iotControl', 'restart');
-
+        // На свежей установке режимы ещё не настроены: неиспользуемые циклы
+        // сразу отключаются, чтобы не занимать процесс и не писать ошибки.
+        $this->reconcileCycles(true);
     }
 
     /**
@@ -2577,6 +2752,16 @@ class tuya extends module
      */
     function uninstall()
     {
+        // Сначала гасим циклы: их скрипты исчезнут вместе с модулем.
+        try {
+            $manager = new \MajorDoMo\Core\Cycles\CycleManager(ROOT);
+            foreach ($this->cycleRequirements() as $cycle => $needed) {
+                $manager->disable($cycle);
+            }
+        } catch (\Throwable $e) {
+            DebMes('Tuya: не удалось отключить циклы при удалении — ' . $e->getMessage(), 'tuya', 'error');
+        }
+
         $req = SQLSelect("SELECT * FROM tucommands WHERE LINKED_OBJECT != '' AND LINKED_PROPERTY != ''");
 
         foreach ($req as $prop) {
@@ -2676,7 +2861,7 @@ EOD;
      */
     function syncDeletedDevices($gid)
     {
-        $localDevices = SQLSelect("SELECT DEV_ID FROM tudevices WHERE GID_ID='" . DBSafe($gid) . "' AND IR_FLAG=0 AND TYPE!='scene'");
+        $localDevices = (array)SQLSelect("SELECT DEV_ID FROM tudevices WHERE GID_ID='" . DBSafe($gid) . "' AND IR_FLAG=0 AND TYPE!='scene'");
         $localIds = array_column($localDevices, 'DEV_ID');
         if (empty($localIds)) return;
 

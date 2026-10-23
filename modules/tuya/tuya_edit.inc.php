@@ -1,12 +1,15 @@
 <?php
 
-   if ($this->owner->name == 'panel') {
+   if (isset($this->owner) && $this->owner->name == 'panel') {
       $out['CONTROLPANEL'] = 1;
    }
 
    $table_name = 'tudevices';
 
    $rec = SQLSelectOne("SELECT * FROM $table_name WHERE ID=" . (int)$id);
+   if (!is_array($rec)) {
+      $rec = array();
+   }
 
    if ($this->mode == 'update') {
 
@@ -59,8 +62,8 @@
       //UPDATING RECORD
       if ($ok) {
          //$rec['UPDATED']=date('y-m-d H:j:s',time());
-         if ($rec['ID']) {
-            if (strlen($rec['SEND12']) == 0) $rec['SEND12'] = 0;
+         if (!empty($rec['ID'])) {
+            if (strlen((string)($rec['SEND12'] ?? '')) == 0) $rec['SEND12'] = 0;
             SQLUpdate($table_name, $rec);
          } else {
             $new_rec = 1;
@@ -81,15 +84,22 @@
    if ($this->tab == 'data') {
       $new_id = 0;
 
-      global $delete_id;
+      $delete_id = gr('delete_id', 'int');
 
       if ($delete_id) {
-         SQLExec("DELETE FROM tucommands WHERE ID='".(int)$delete_id."'");
-         SQLExec("DELETE FROM tuvalues WHERE ID='".(int)$delete_id."'");
+         $delete_id = (int)$delete_id;
+         // Снимаем привязку до удаления команды, иначе свойство останется
+         // подписанным на несуществующий параметр Tuya.
+         $deleted = SQLSelectOne("SELECT * FROM tucommands WHERE ID=" . $delete_id);
+         if ($deleted && $deleted['LINKED_OBJECT'] != '' && $deleted['LINKED_PROPERTY'] != '') {
+            removeLinkedProperty($deleted['LINKED_OBJECT'], $deleted['LINKED_PROPERTY'], $this->name);
+         }
+         SQLExec("DELETE FROM tucommands WHERE ID=" . $delete_id);
+         SQLExec("DELETE FROM tuvalues WHERE ID=" . $delete_id);
 
       }
 
-      $properties = SQLSelect("SELECT tucommands.*, VALUE,UPDATED FROM tucommands INNER JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID='".$rec['ID']."' ORDER BY ID");
+      $properties = (array)SQLSelect("SELECT tucommands.*, VALUE,UPDATED FROM tucommands INNER JOIN tuvalues ON tucommands.ID=tuvalues.ID WHERE DEVICE_ID=" . (int)$rec['ID'] . " ORDER BY ID");
 
       $total = count($properties);
 
@@ -147,7 +157,11 @@
             SQLUpdate('tucommands', $properties[$i]);
             $properties[$i]['VALUE'] = $displayValue;
             $properties[$i]['UPDATED'] = $displayUpdated;
-            if ($old_linked_object && $old_linked_object!=$properties[$i]['LINKED_OBJECT'] && $old_linked_property && $old_linked_property!=$properties[$i]['LINKED_PROPERTY']) {
+            // Старая привязка снимается при любом изменении пары объект/свойство,
+            // в том числе когда связь убрали совсем. Раньше условие требовало
+            // смены обоих полей сразу, и старая подписка оставалась висеть.
+            if ($old_linked_object != '' && $old_linked_property != ''
+               && ($old_linked_object != $properties[$i]['LINKED_OBJECT'] || $old_linked_property != $properties[$i]['LINKED_PROPERTY'])) {
              removeLinkedProperty($old_linked_object, $old_linked_property, $this->name);
             }
          }

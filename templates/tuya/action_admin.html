@@ -11,11 +11,11 @@
             <h1 class="md-ui-hero__title">Tuya / Smart Life</h1>
             <p class="md-ui-hero__lede">Устройства Tuya и привязка их параметров к свойствам MajorDoMo.</p>
             <div class="md-ui-hero__meta">
-                <span class="md-ui-hero__meta-item">Облачный цикл: <strong>[#if CYCLERUN==1#]работает[#else#]остановлен[#endif#]</strong>
+                <span class="md-ui-hero__meta-item">Облачный цикл: <strong>[#CYCLERUN#]</strong>
                 </span>
-                <span class="md-ui-hero__meta-item">Локальный цикл: <strong>[#if LOCAL_CYCLERUN==1#]работает[#else#]остановлен[#endif#]</strong>
+                <span class="md-ui-hero__meta-item">Локальный цикл: <strong>[#LOCAL_CYCLERUN#]</strong>
                 </span>
-                [#if TUYA_IOT==1#]<span class="md-ui-hero__meta-item">IoT: <strong>[#if IOT_CYCLERUN==1#]работает[#else#]остановлен[#endif#]</strong>
+                [#if TUYA_IOT==1#]<span class="md-ui-hero__meta-item">IoT: <strong>[#IOT_CYCLERUN#]</strong>
                 </span>[#endif#]
             </div>
         </div>
@@ -86,11 +86,6 @@
     [#if TAB=="data"#][#inc tudevices_edit_data.html#][#endif#]
     [#endif VIEW_MODE#]
     [#endif DATA_SOURCE#]
-    [#if DATA_SOURCE="tucommands"#]
-    [#if VIEW_MODE="search_tucommands" || VIEW_MODE=""#][#inc tucommands_search_admin.html#][#endif#]
-    [#if VIEW_MODE="edit_tucommands"#][#inc tucommands_edit.html#][#endif#]
-    [#if VIEW_MODE="view_tucommands"#][#inc tucommands_view.html#][#endif#]
-    [#endif#]
     <div class="md-alert md-alert--info" role="status" aria-live="polite" data-tuya-feedback hidden>
         <div class="md-alert__body" data-tuya-feedback-text>
         </div>
