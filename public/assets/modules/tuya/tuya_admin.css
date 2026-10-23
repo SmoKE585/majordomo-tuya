@@ -7,6 +7,12 @@ body.md-admin-shell .tuya-page .md-ui-kpi-grid { grid-template-columns: repeat(3
 .tuya-form .md-field, .tuya-form-grid > * { min-width: 0; }
 .tuya-form .md-input, .tuya-form .md-select { width: 100%; }
 .tuya-checks, .tuya-form-actions, .tuya-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--md-ui-space-3); }
+/* Режимы подключения: три карточки-переключателя в ряд с описанием. */
+.tuya-checks--grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--md-ui-space-3) var(--md-ui-space-4); align-items: start; margin-bottom: var(--md-ui-space-5); }
+.tuya-checks--grid .md-check, .tuya-checks--separated .md-check { align-items: flex-start; }
+.tuya-checks--grid .md-check__text, .tuya-checks--separated .md-check__text { display: grid; gap: 2px; }
+.tuya-checks--separated { border-top: 1px solid var(--md-ui-border); margin-top: var(--md-ui-space-2); padding-top: var(--md-ui-space-4); }
+.tuya-fieldset > .md-field__label { display: block; margin-bottom: var(--md-ui-space-3); }
 .tuya-chips { gap: var(--md-ui-space-1); margin-top: var(--md-ui-space-2); }
 .tuya-page .tuya-chips .md-badge { flex-wrap: wrap; max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .tuya-device-cell { min-width: 260px; }
@@ -23,7 +29,7 @@ body.md-admin-shell .tuya-page .md-ui-kpi-grid { grid-template-columns: repeat(3
 .tuya-scan-result table { min-width: 500px; }
 .tuya-page .md-table__actions { flex-wrap: nowrap; }
 @media (max-width: 767px) {
-  .tuya-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .tuya-form-grid, .tuya-checks--grid { grid-template-columns: minmax(0, 1fr); }
   body.md-admin-shell .tuya-page .md-ui-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   body.md-admin-shell .tuya-page .md-kpi__meta { display: none; }
   body.md-admin-shell .tuya-page .md-kpi { min-height: 0; padding: var(--md-ui-space-3); }
