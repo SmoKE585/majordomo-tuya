@@ -106,7 +106,7 @@ $data = ['ACTION' => 'admin', 'DATA_SOURCE' => 'tudevices', 'VIEW_MODE' => '', '
     'CYCLERUN' => 'работает', 'LOCAL_CYCLERUN' => 'работает', 'TUYA_IOT' => 1, 'IOT_CYCLERUN' => 'отключён',
     'TUYA_USERNAME' => 'fixture@example.test', 'TUYA_PASSWD' => 'fixture-only', 'TUYA_CLIENT_SECRET' => 'fixture-secret',
     'TUYA_CCODE' => 7, 'TUYA_BZTYPE' => 'smart_life', 'TUYA_LOCAL_INTERVAL' => 5,
-    'TUYA_WEB_INTERVAL' => 30, 'TUYA_INTERVAL' => 30, 'TUYA_WEB' => 1,
+    'TUYA_WEB_INTERVAL' => 30, 'TUYA_INTERVAL' => 30, 'TUYA_WEB' => 1, 'TUYA_UNLINKED_INTERVAL' => 3600,
     'TUYA_WEB_ENDPOINT' => 'https://fixture.invalid/api', 'TUYA_SID' => 'fixture-session',
 ];
 if (in_array($variant, ['devices', 'empty'], true)) {

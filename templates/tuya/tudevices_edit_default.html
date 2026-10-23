@@ -7,6 +7,14 @@
         <div class="md-alert__body">
             <#LANG_FILLOUT_REQURED#>
         </div>
+    </div>[#endif#][#if REFRESH_OK#]<div class="md-alert md-alert--success" role="status">
+        <div class="md-alert__body">
+            Значения обновлены из устройства.
+        </div>
+    </div>[#endif#][#if REFRESH_FAIL#]<div class="md-alert md-alert--warning" role="status">
+        <div class="md-alert__body">
+            Не удалось прочитать устройство. Проверьте связь, локальный ключ/IP или настройки облака.
+        </div>
     </div>[#endif#]<section class="md-card">
         <header class="md-card__head">
             <div class="md-card__titles">
@@ -212,6 +220,8 @@
         </div>
     </section>
     <div class="tuya-form-actions">
+        [#if ID!=""#]<button type="submit" name="refresh" value="1" class="md-btn md-btn--secondary">
+            <i class="ti ti-refresh" aria-hidden="true"></i>Обновить значения</button>[#endif#]
         <button type="submit" name="subm" value="Submit" class="md-btn md-btn--primary">
             <i class="ti ti-check" aria-hidden="true"></i>Сохранить</button>
         <a href="?data_source=tudevices" class="md-btn md-btn--secondary">Отмена</a>

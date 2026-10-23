@@ -100,6 +100,11 @@
                     <label class="md-field__label" for="tuya_interval">Опрос облака HA, сек.</label>
                     <input class="md-input" type="number" id="tuya_interval" name="tuya_interval" value="<#TUYA_INTERVAL#>" min="1">
                 </div>
+                <div class="md-field">
+                    <label class="md-field__label" for="tuya_unlinked_interval">Непривязанные параметры, сек.</label>
+                    <input class="md-input" type="number" id="tuya_unlinked_interval" name="tuya_unlinked_interval" value="<#TUYA_UNLINKED_INTERVAL#>" min="0" step="1" inputmode="numeric">
+                    <div class="md-field__hint">Первый приём сохраняется сразу, следующие — не чаще интервала. 0 — сохранять каждое значение. Привязанные свойства и методы, а также статус связи обновляются всегда.</div>
+                </div>
             </div>
         </div>
     </section>

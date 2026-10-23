@@ -14,6 +14,9 @@
  *   отключаются, когда режим не настроен; сетевые вызовы получили таймауты и
  *   heartbeat для watchdog; удалён мёртвый код (сцены, пульты, tucommands,
  *   $session->data).
+ * 2026-10-23 — непривязанные параметры сохраняются не на каждом опросе, а по
+ *   интервалу (по умолчанию час), как MQTT_UNLINKED_UPDATE_INTERVAL в MQTT;
+ *   добавлена кнопка «Обновить значения» в карточке устройства.
  *
  * @package project
  * @author <fandaymon@gmail.com>
@@ -28,6 +31,15 @@ class tuya extends module
      * очереди, и трогать heartbeat чужого цикла нельзя.
      */
     public string $cycleName = '';
+
+    /**
+     * Принудительно сохранять значения без привязки: включается на время
+     * ручного обновления из карточки устройства.
+     */
+    private bool $forceUnlinkedValues = false;
+
+    /** Кэш интервала сохранения непривязанных параметров на один процесс. */
+    private ?int $unlinkedIntervalCache = null;
 
     /** Таймауты сети (сек): цикл не должен молчать дольше CYCLE_HEARTBEAT_TIMEOUT. */
     private const HTTP_CONNECT_TIMEOUT = 5;
@@ -194,6 +206,180 @@ class tuya extends module
     }
 
     /**
+     * Интервал сохранения непривязанных параметров в секундах.
+     * 0 — сохранять каждое значение, как раньше.
+     */
+    private function unlinkedInterval(): int
+    {
+        if ($this->unlinkedIntervalCache === null) {
+            $this->getConfig();
+            $value = $this->config['TUYA_UNLINKED_UPDATE_INTERVAL'] ?? 3600;
+            $this->unlinkedIntervalCache = max(0, (int)$value);
+        }
+        return $this->unlinkedIntervalCache;
+    }
+
+    /**
+     * Нужно ли сохранять значение параметра, у которого нет привязки.
+     *
+     * Первое значение сохраняется сразу, дальше — не чаще заданного интервала.
+     * Статус связи (`online`) пишется всегда: он нужен в списке устройств.
+     * Так база не получает запись на каждый опрос по неиспользуемым DP.
+     */
+    private function shouldStoreUnlinked(string $command, $old_rec): bool
+    {
+        if ($command === 'online') {
+            return true;
+        }
+        $interval = $this->unlinkedInterval();
+        if ($interval <= 0) {
+            return true;
+        }
+        if (!is_array($old_rec) || empty($old_rec['UPDATED'])) {
+            return true;
+        }
+        $updated = strtotime((string)$old_rec['UPDATED']);
+        if ($updated === false) {
+            return true;
+        }
+        return (time() - $updated) >= $interval;
+    }
+
+    /**
+     * Немедленное обновление значений устройства по запросу из карточки.
+     * Возвращает false, если источник недоступен или режим не настроен.
+     */
+    public function refreshDeviceValues(int $deviceId): bool
+    {
+        $device = SQLSelectOne('SELECT * FROM tudevices WHERE ID=' . $deviceId);
+        if (!$device) {
+            return false;
+        }
+        $this->getConfig();
+
+        try {
+            switch ((int)($device['STATUS'] ?? 0)) {
+                case 2:
+                    return $this->refreshDeviceFromIot($device);
+                case 1:
+                    return $this->refreshDeviceLocally($device);
+                default:
+                    if (empty($this->config['TUYA_WEB'])) {
+                        return false;
+                    }
+                    // Облако отдаёт состояние сразу по всему дому: один запрос
+                    // обновляет и остальные устройства, это нормально для ручной кнопки.
+                    $this->forceUnlinkedValues = true;
+                    return $this->Tuya_Web_Status();
+            }
+        } catch (\Throwable $e) {
+            DebMes('Tuya: не удалось обновить значения устройства ' . $deviceId . ' — ' . $e->getMessage(), 'tuya', 'error');
+            return false;
+        } finally {
+            $this->forceUnlinkedValues = false;
+        }
+    }
+
+    /**
+     * Локальный опрос одного устройства (включая Zigbee-устройство за шлюзом).
+     */
+    private function refreshDeviceLocally(array $device): bool
+    {
+        $localKey = trim((string)($device['LOCAL_KEY'] ?? ''));
+        $ip = trim((string)($device['DEV_IP'] ?? ''));
+        $version = (string)($device['TUYA_VER'] ?? '3.3');
+        if ($localKey === '' || $ip === '') {
+            return false;
+        }
+
+        $devId = (string)($device['DEV_ID'] ?? '');
+        $cid = '';
+        if (!empty($device['MESH_ID'])) {
+            $gateway = SQLSelectOne("SELECT * FROM tudevices WHERE DEV_ID='" . DBSafe($device['MESH_ID']) . "'");
+            if (!$gateway || empty($gateway['LOCAL_KEY']) || empty($gateway['DEV_IP'])) {
+                DebMes('Tuya: не найден шлюз ' . $device['MESH_ID'] . ' для обновления ' . $devId, 'tuya', 'error');
+                return false;
+            }
+            $localKey = (string)$gateway['LOCAL_KEY'];
+            $ip = (string)$gateway['DEV_IP'];
+            $devId = (string)$gateway['DEV_ID'];
+            $cid = (string)($device['UUID'] ?? '');
+            $version = (string)($gateway['TUYA_VER'] ?? $version);
+        }
+
+        // Zigbee-устройство на протоколе 3.1/3.3 читается через шлюз отдельным
+        // пакетом с cid, как это делает локальный цикл.
+        if ($cid !== '' && $version !== '3.4' && $version !== '3.5') {
+            $payload = $this->TuyaLocalEncrypt('0a', '{"cid":"' . $cid . '"}', $localKey, $version);
+            $raw = $this->Tuya_send_receive($payload, $ip);
+            $result = substr((string)$raw, 20, -8);
+            if ($version != '3.1') {
+                $result = openssl_decrypt($result, 'AES-128-ECB', $localKey, OPENSSL_RAW_DATA);
+            }
+        } else {
+            $result = $this->TuyaLocalMsg('STATUS', $devId, $localKey, $ip, '', $cid, $version);
+        }
+
+        $status = json_decode((string)$result, true);
+        if (!is_array($status) || empty($status['dps']) || !is_array($status['dps'])) {
+            return false;
+        }
+
+        foreach ($status['dps'] as $key => $value) {
+            if (is_bool($value)) {
+                $value = $value ? 1 : 0;
+            }
+            $this->processCommand((int)$device['ID'], (string)$key, $value, 0, false, true);
+        }
+        $this->processCommand((int)$device['ID'], 'online', 1, 0, false, true);
+        return true;
+    }
+
+    /**
+     * Состояние устройства через облако IoT (коды параметров из API).
+     */
+    private function refreshDeviceFromIot(array $device): bool
+    {
+        if (empty($this->config['TUYA_IOT'])
+            || trim((string)($this->config['TUYA_CLIENT_ID'] ?? '')) === ''
+            || trim((string)($this->config['TUYA_CLIENT_SECRET'] ?? '')) === '') {
+            return false;
+        }
+        $expire = (int)($this->config['TUYA_TOKEN_EXPIRE_TIME'] ?? 0);
+        if (empty($this->config['TUYA_ACCESS_TOKEN']) || ($expire > 0 && time() > ($expire - 60))) {
+            $this->Tuya_IOT_Login();
+            $this->getConfig();
+        }
+
+        $devId = (string)($device['DEV_ID'] ?? '');
+        if ($devId === '') {
+            return false;
+        }
+
+        $result = $this->Tuya_IOT_GET('/v1.0/iot-03/devices/' . rawurlencode($devId) . '/status');
+        if (empty($result->success) || empty($result->result) || !is_array($result->result)) {
+            return false;
+        }
+
+        $saved = 0;
+        foreach ($result->result as $item) {
+            $code = (string)($item['code'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            // В облаке IoT параметр приходит кодом, а в модуле он может быть
+            // уже сохранён под псевдонимом — обновляем ту же запись.
+            $command = SQLSelectOne("SELECT * FROM tucommands WHERE DEVICE_ID=" . (int)$device['ID']
+                . " AND (ALIAS='" . DBSafe($code) . "' OR TITLE='" . DBSafe($code) . "')");
+            $title = $command ? (string)$command['TITLE'] : $code;
+            $this->processCommand((int)$device['ID'], $title, $item['value'] ?? '', 0, false, true);
+            $saved++;
+        }
+        return $saved > 0;
+    }
+
+
+    /**
      * Сколько устройств использует каждый источник статуса (0 — облако,
      * 1 — локально, 2 — MQTT). null — запрос не удался: состояние неизвестно,
      * и циклы лучше не трогать, чем отключить их из-за сбоя БД.
@@ -307,6 +493,11 @@ class tuya extends module
         $out['IOT_CYCLERUN'] = $this->cycleLabel('cycle_tuya_iot');
         $out['CSRF_TOKEN'] = $this->csrfToken();
 
+        // Результат ручного обновления из карточки устройства.
+        $refreshed = gr('refreshed');
+        $out['REFRESH_OK'] = ($refreshed === '1') ? 1 : 0;
+        $out['REFRESH_FAIL'] = ($refreshed === '0') ? 1 : 0;
+
 
         $out['TUYA_USERNAME'] = htmlspecialchars((string)($this->config['TUYA_USERNAME'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $out['TUYA_PASSWD'] = htmlspecialchars((string)($this->config['TUYA_PASSWD'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -318,6 +509,7 @@ class tuya extends module
         $out['TUYA_SID'] = htmlspecialchars((string)($this->config['TUYA_SID'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $out['TUYA_WEB'] = htmlspecialchars((string)($this->config['TUYA_WEB'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $out['TUYA_WEB_INTERVAL'] = htmlspecialchars((string)($this->config['TUYA_WEB_INTERVAL'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $out['TUYA_UNLINKED_INTERVAL'] = $this->unlinkedInterval();
         $out['TUYA_WEB_ENDPOINT'] = htmlspecialchars((string)($this->config['TUYA_WEB_ENDPOINT'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $out['TUYA_CYCLE_DEBUG'] = htmlspecialchars((string)($this->config['TUYA_CYCLE_DEBUG'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $out['TUYA_HA'] = htmlspecialchars((string)($this->config['TUYA_HA'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -353,6 +545,11 @@ class tuya extends module
 
             $this->config['TUYA_WEB'] = !empty(gr('tuya_web'));
             $this->config['TUYA_WEB_INTERVAL'] = max(10, gr('tuya_web_interval', 'int'));
+            // Пустое поле — значение по умолчанию (раз в час), 0 — без ограничения.
+            $unlinkedInterval = gr('tuya_unlinked_interval');
+            $this->config['TUYA_UNLINKED_UPDATE_INTERVAL'] = ($unlinkedInterval === '')
+                ? 3600
+                : max(0, (int)$unlinkedInterval);
             $this->config['TUYA_WEB_ENDPOINT'] = gr('tuya_web_endpoint');
 
             $this->config['TUYA_IOT'] = !empty(gr('tuya_iot'));
@@ -461,6 +658,15 @@ class tuya extends module
             DebMes('Tuya: удаление свойства отклонено — нет CSRF-токена.', 'tuya');
             $this->redirect('?data_source=tudevices');
         }
+
+        // Кнопка «Обновить значения» в карточке: читаем устройство сейчас,
+        // не дожидаясь очередного опроса и часового лимита для непривязанных DP.
+        if ($this->mode === 'update' && gr('refresh') === '1') {
+            $refreshed = $this->refreshDeviceValues((int)$this->id);
+            $this->redirect('?data_source=tudevices&view_mode=edit_tudevices&id=' . (int)$this->id
+                . '&refreshed=' . ($refreshed ? '1' : '0'));
+        }
+
         require(DIR_MODULES . $this->name . '/tuya_edit.inc.php');
         if ($this->mode === 'update') {
             // Устройство могло сменить источник статуса — циклы должны это учесть.
@@ -1676,7 +1882,9 @@ class tuya extends module
             'requiresSID' => 1]);
         $result = json_decode($apiResult, true);
 
-        if (empty($result['result'])) return;
+        if (empty($result['result'])) return false;
+
+        $processed = 0;
 
         foreach ($result['result'] as $home) {
             $gid = $home['groupId'];
@@ -1794,12 +2002,15 @@ class tuya extends module
                     }
 
                 }
+                $processed++;
             }
             // Синхронизация — один раз на дом, а не на каждое устройство: иначе
             // цикл делал по два лишних запроса в облако на каждое устройство.
             $this->syncDeletedDevices($gid);
             $this->syncDeviceTitles($gid);
         }
+
+        return $processed > 0;
     }
 
     function Tuya_Web_Discovery_Devices()
@@ -2412,7 +2623,7 @@ class tuya extends module
         return true;
     }
 
-    function processCommand($device_id, $command, $value, $params = 0, $checkOld = true)
+    function processCommand($device_id, $command, $value, $params = 0, $checkOld = true, $force = false)
     {
 
         $cmd_rec = SQLSelectOne("SELECT * FROM tucommands WHERE DEVICE_ID=" . (int)$device_id . " AND TITLE LIKE '" . DBSafe($command) . "'");
@@ -2458,6 +2669,19 @@ class tuya extends module
             $cmd_rec['ID'] = SQLInsert('tucommands', $cmd_rec);
         }
 
+        // Привязка к свойству или методу — единственный признак, что значение
+        // нужно обрабатывать на каждом опросе. Непривязанные параметры пишем в
+        // базу редко (по умолчанию раз в час), иначе каждый опрос даёт запись
+        // на каждый DP, даже если никто его не использует. `online` — исключение,
+        // он нужен списку устройств всегда.
+        $isLinked = ($cmd_rec['LINKED_OBJECT'] ?? '') !== ''
+            && (($cmd_rec['LINKED_PROPERTY'] ?? '') !== '' || ($cmd_rec['LINKED_METHOD'] ?? '') !== '');
+        $old_rec = SQLSelectOne('SELECT * FROM tuvalues WHERE ID=' . (int)$cmd_rec['ID'] . ';');
+        $force = $force || $this->forceUnlinkedValues;
+        if (!$isLinked && !$force && !$this->shouldStoreUnlinked((string)$command, $old_rec)) {
+            return;
+        }
+
         // Новая команда создана без этих полей: читаем их безопасно, иначе
         // PHP 8 пишет предупреждение в журнал на каждый первый пакет.
         $scale = (int)($cmd_rec['VALUE_SCALE'] ?? 0);
@@ -2485,7 +2709,7 @@ class tuya extends module
                     $d = ($d) ? 1 : 0;
                 }
 
-                $this->processCommand($device_id, $k, $d);
+                $this->processCommand($device_id, $k, $d, 0, true, $force);
             }
         }
 
@@ -2499,9 +2723,9 @@ class tuya extends module
             $a6 = unpack("N", hex2bin('00') . substr($v, 2, 3))[1] / 1000;
             $w6 = unpack("N", hex2bin('00') . substr($v, 5, 3))[1];
 
-            $this->processCommand($device_id, $command . '_v', $v6, $params, $checkOld);
-            $this->processCommand($device_id, $command . '_a', $a6, $params, $checkOld);
-            $this->processCommand($device_id, $command . '_w', $w6, $params, $checkOld);
+            $this->processCommand($device_id, $command . '_v', $v6, $params, $checkOld, $force);
+            $this->processCommand($device_id, $command . '_a', $a6, $params, $checkOld, $force);
+            $this->processCommand($device_id, $command . '_w', $w6, $params, $checkOld, $force);
 
         }
 
@@ -2533,8 +2757,6 @@ class tuya extends module
             return;
         }
 
-
-        $old_rec = SQLSelectOne('SELECT * FROM tuvalues WHERE ID=' . $cmd_rec['ID'] . ';');
 
         if ($old_rec) {
 
