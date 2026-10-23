@@ -659,9 +659,12 @@ class tuya extends module
             $this->redirect('?data_source=tudevices');
         }
 
-        // Кнопка «Обновить значения» в карточке: читаем устройство сейчас,
+        // Кнопка «Обновить значения» в карточке: сначала сохраняем введённые
+        // поля (например, новый локальный ключ), затем читаем устройство сейчас,
         // не дожидаясь очередного опроса и часового лимита для непривязанных DP.
         if ($this->mode === 'update' && gr('refresh') === '1') {
+            require(DIR_MODULES . $this->name . '/tuya_edit.inc.php');
+            $this->reconcileCycles();
             $refreshed = $this->refreshDeviceValues((int)$this->id);
             $this->redirect('?data_source=tudevices&view_mode=edit_tudevices&id=' . (int)$this->id
                 . '&refreshed=' . ($refreshed ? '1' : '0'));
